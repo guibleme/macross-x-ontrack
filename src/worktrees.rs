@@ -949,7 +949,7 @@ fn removed_checkout_target_tip(repo: &RepositoryIdentity, entry: &Value) -> io::
 }
 
 const NO_TASK_COMMITS: &str = "No task commits beyond the recorded launch base. No-op completion is not supported: inspect the task and keep the checkout; closing a Bead alone never authorizes integration or cleanup.";
-const CLOSED_REMOVAL_UNAVAILABLE: &str = "Checkout removal unavailable after workspace closure: installed Herdr help documents only --workspace ID; safe removal using a closed ID is unverified. Do not reuse the closed ID. Inspect the recorded checkout and current branch integration, then use Git's non-force worktree removal for that exact path, retaining the branch; OnTrack will not automatically adopt a replacement workspace.";
+const CLOSED_INTEGRATED_DETAIL: &str = "Integration is verified and the Herdr workspace is closed. Use x to remove the clean local checkout; Git keeps the branch.";
 
 fn task_commits(repo: &RepositoryIdentity, entry: &Value, source_tip: &str) -> io::Result<()> {
     let base = field(entry, "base")?;
@@ -1237,10 +1237,11 @@ fn inspect(repo: &RepositoryIdentity, entry: &Value) -> ManagedWorktree {
                 } else {
                     Integrated
                 },
-                entry["detail"].as_str().map(str::to_owned).or_else(|| {
-                    (entry["workspace_closed"] == true)
-                        .then(|| CLOSED_REMOVAL_UNAVAILABLE.to_owned())
-                }),
+                if entry["workspace_closed"] == true {
+                    Some(CLOSED_INTEGRATED_DETAIL.to_owned())
+                } else {
+                    entry["detail"].as_str().map(str::to_owned)
+                },
             );
         }
         Err(e) => return view(entry, NeedsAttention, Some(e.to_string())),
@@ -2371,11 +2372,11 @@ fn cleanup(
     if entry["checkout_removed"] == true {
         return Ok(());
     }
+    if matches!(action, Action::RemoveCheckout) && entry["workspace_closed"] == true {
+        return remove_closed_checkout(registry, index, executor);
+    }
     if matches!(action, Action::CloseWorkspace) && entry["workspace_closed"] == true {
         return Ok(());
-    }
-    if matches!(action, Action::RemoveCheckout) && entry["workspace_closed"] == true {
-        return Err(error(CLOSED_REMOVAL_UNAVAILABLE));
     }
     if entry["cleanup_pending"].is_string() {
         return Err(error(
@@ -2429,6 +2430,154 @@ fn cleanup(
     // Even a successful transport is not proof: independently verify topology.
     envelope(&bytes)?;
     confirm_cleanup(registry, index, executor)
+}
+
+fn remove_closed_checkout(
+    registry: &mut Registry,
+    index: usize,
+    executor: &mut impl Executor,
+) -> io::Result<()> {
+    let entry = registry.entries[index].clone();
+    if entry["phase"] != "active" || entry["workspace_closed"] != true {
+        return Err(error(
+            "Checkout removal requires a closed managed workspace",
+        ));
+    }
+    if entry["cleanup_pending"].is_string() {
+        return Err(error(
+            "Checkout removal needs recovery; refresh before retrying",
+        ));
+    }
+    if registry.entries.iter().any(|child| {
+        child["parent_bead_id"] == entry["bead_id"] && child["checkout_removed"] != true
+    }) {
+        return Err(error("Remove tracked child checkouts first"));
+    }
+
+    let verified = verify(&registry.repo, &entry)?;
+    task_commits(&registry.repo, &entry, &verified.source_tip)?;
+    if !ancestor(
+        &registry.repo.main_root,
+        &verified.source_tip,
+        &verified.target_tip,
+    )? {
+        return Err(error(
+            "Current source is not integrated; checkout removal refused",
+        ));
+    }
+    requested_merge_tips_in_source(&registry.repo, &entry, &verified.source_tip)?;
+
+    ensure_closed_checkout_in_herdr(&registry.repo, &entry, executor)?;
+    let checkout = Path::new(field(&entry, "path")?);
+
+    let cwd = std::env::current_dir()?.canonicalize()?;
+    if cwd.starts_with(&verified.source) {
+        return Err(error(
+            "Cannot remove the checkout running this OnTrack process",
+        ));
+    }
+    let bead_id = field(&entry, "bead_id")?.to_owned();
+    let bead = executor.show_bead(&bead_id)?;
+    if bead["id"] != bead_id || bead["status"] != "closed" {
+        close_integrated(registry, index, executor, false)?;
+    }
+
+    let fresh = verify(&registry.repo, &entry)?;
+    if fresh.source_tip != verified.source_tip || fresh.target_tip != verified.target_tip {
+        return Err(error(
+            "Git tips changed during checkout validation; nothing removed",
+        ));
+    }
+    ensure_closed_checkout_in_herdr(&registry.repo, &entry, executor)?;
+    let final_git = verify(&registry.repo, &entry)?;
+    if final_git.source_tip != verified.source_tip || final_git.target_tip != verified.target_tip {
+        return Err(error(
+            "Git tips changed during Herdr validation; nothing removed",
+        ));
+    }
+    registry.entries[index]["cleanup_pending"] = json!("remove-closed-git");
+    registry.entries[index]["cleanup_source_tip"] = json!(verified.source_tip);
+    registry.entries[index]["detail"] = json!(
+        "Git checkout removal may have started; refresh to verify before any retry. The branch is preserved."
+    );
+    registry.save()?;
+
+    let path = checkout
+        .to_str()
+        .ok_or_else(|| error("Non UTF-8 checkout path"))?;
+    let output = git_output(
+        &registry.repo.main_root,
+        &["worktree", "remove", "--", path],
+    );
+    match output {
+        Ok(output) if output.status.success() => confirm_cleanup(registry, index, executor),
+        Ok(output) => {
+            let message = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+            registry.entries[index]["detail"] = json!(if message.is_empty() {
+                "Git did not remove the checkout. Refresh to verify its state before retrying."
+                    .to_owned()
+            } else {
+                format!("Git could not remove the checkout: {message}")
+            });
+            registry.save()?;
+            Err(error(
+                registry.entries[index]["detail"]
+                    .as_str()
+                    .unwrap_or_default(),
+            ))
+        }
+        Err(error) => {
+            registry.entries[index]["detail"] = json!(format!(
+                "Git checkout removal result is unknown: {error}. Refresh to verify before any retry."
+            ));
+            registry.save()?;
+            Err(error)
+        }
+    }
+}
+
+fn ensure_closed_checkout_in_herdr(
+    repo: &RepositoryIdentity,
+    entry: &Value,
+    executor: &mut impl Executor,
+) -> io::Result<()> {
+    let inventory = worktree_inventory(repo, entry, executor)?;
+    let rows = inventory["worktrees"]
+        .as_array()
+        .ok_or_else(|| error("Missing Herdr worktree verification rows"))?;
+    let recorded_path = field(entry, "path")?;
+    let source = Path::new(recorded_path);
+    let mut matches = 0;
+    for row in rows {
+        let Some(path) = row["path"].as_str() else {
+            continue;
+        };
+        let matches_source = path == recorded_path
+            || (source.exists()
+                && Path::new(path)
+                    .canonicalize()
+                    .is_ok_and(|path| path == source));
+        if matches_source {
+            matches += 1;
+            if row["branch"] != entry["branch"] {
+                return Err(error(
+                    "Herdr checkout branch does not match the recorded branch",
+                ));
+            }
+            if row["open_workspace_id"].is_string() {
+                return Err(error("Herdr still reports this checkout as open"));
+            }
+        }
+    }
+    if source.exists() && matches != 1 {
+        return Err(error(
+            "Herdr did not identify exactly one recorded checkout",
+        ));
+    }
+    if !source.exists() && matches != 0 {
+        return Err(error("Herdr still lists the removed checkout"));
+    }
+    Ok(())
 }
 
 fn worktree_inventory(
@@ -2523,6 +2672,9 @@ fn confirm_cleanup(
 ) -> io::Result<()> {
     let entry = &registry.entries[index];
     let operation = field(entry, "cleanup_pending")?.to_owned();
+    if operation == "remove-closed-git" {
+        return confirm_closed_git_removal(registry, index, executor);
+    }
     let result = worktree_inventory(&registry.repo, entry, executor)?;
     let rows = result["worktrees"]
         .as_array()
@@ -2578,6 +2730,66 @@ fn confirm_cleanup(
     registry.entries[index]["cleanup_pending"] = Value::Null;
     registry.entries[index]["detail"] = Value::Null;
     registry.save()
+}
+
+fn confirm_closed_git_removal(
+    registry: &mut Registry,
+    index: usize,
+    executor: &mut impl Executor,
+) -> io::Result<()> {
+    let entry = registry.entries[index].clone();
+    let repo = &registry.repo;
+    let path = Path::new(field(&entry, "path")?);
+    let branch_ref = format!("refs/heads/{}", field(&entry, "branch")?);
+    let source_tip = tip(&repo.main_root, &branch_ref)?;
+    let target = target_checkout_identity(repo, &entry)?;
+    let target_tip = tip(&target, "HEAD")?;
+    task_commits(repo, &entry, &source_tip)?;
+    if !ancestor(&repo.main_root, &source_tip, &target_tip)? {
+        return Err(error(
+            "Source is no longer integrated; checkout removal is unconfirmed",
+        ));
+    }
+    if !ancestor(
+        &repo.main_root,
+        field(&entry, "cleanup_source_tip")?,
+        &source_tip,
+    )? {
+        return Err(error("Preserved branch changed during checkout removal"));
+    }
+
+    let registered = git(&repo.main_root, &["worktree", "list", "--porcelain", "-z"])?
+        .split('\0')
+        .any(|line| line.strip_prefix("worktree ") == path.to_str());
+    if checkout_missing(&entry)? && !registered {
+        ensure_closed_checkout_in_herdr(repo, &entry, executor)?;
+        registry.entries[index]["checkout_removed"] = json!(true);
+        registry.entries[index]["cleanup_pending"] = Value::Null;
+        registry.entries[index]["cleanup_response"] =
+            json!("git worktree remove -- <recorded path>");
+        registry.entries[index]["detail"] = Value::Null;
+        registry.save()?;
+        return Ok(());
+    }
+
+    if path.exists() && registered {
+        let verified = verify(repo, &entry)?;
+        if verified.source_tip != source_tip {
+            return Err(error(
+                "Checkout changed during removal; inspect before retrying",
+            ));
+        }
+        ensure_closed_checkout_in_herdr(repo, &entry, executor)?;
+        registry.entries[index]["cleanup_pending"] = Value::Null;
+        registry.entries[index]["cleanup_source_tip"] = Value::Null;
+        registry.entries[index]["detail"] = Value::Null;
+        registry.save()?;
+        return Ok(());
+    }
+
+    Err(error(
+        "Checkout removal is unresolved; path and Git registration do not agree",
+    ))
 }
 
 pub fn act(id: &str, action: Action) -> io::Result<ManagedWorktree> {
@@ -2657,6 +2869,10 @@ fn reconcile_with(
                 finalize(&mut registry, index, executor)?;
             }
             let status = inspect(&registry.repo, &registry.entries[index]).status;
+            if status == WorktreeStatus::WorkspaceClosed {
+                // A closed workspace requires a fresh explicit removal confirmation.
+                return Ok(());
+            }
             let mut closed_now = false;
             if status == WorktreeStatus::Integrated {
                 let entry = &registry.entries[index];
@@ -2682,31 +2898,25 @@ fn reconcile_with(
             }
             if !matches!(
                 status,
-                WorktreeStatus::Unmerged
-                    | WorktreeStatus::Integrated
-                    | WorktreeStatus::WorkspaceClosed
+                WorktreeStatus::Unmerged | WorktreeStatus::Integrated
             ) {
                 return Ok(());
             }
             if (status == WorktreeStatus::Unmerged && !auto_merge)
                 || (status == WorktreeStatus::Integrated
                     && !(policy.auto_close_workspace || policy.auto_remove_checkout))
-                || (status == WorktreeStatus::WorkspaceClosed && !policy.auto_remove_checkout)
             {
                 return Ok(());
             }
             let entry = &registry.entries[index];
-            if status == WorktreeStatus::WorkspaceClosed {
-                return Err(error(CLOSED_REMOVAL_UNAVAILABLE));
-            }
             let verified = verify(&registry.repo, entry)?;
             task_commits(&registry.repo, entry, &verified.source_tip)?;
             let bead = executor.show_bead(field(entry, "bead_id")?)?;
             if bead["id"] != entry["bead_id"] || !merge_ready(&bead) {
                 return Ok(());
             }
-            // Only open workspaces reach this gate. A closed workspace has no
-            // documented Herdr removal path and must not query a departed agent.
+            // Only open workspaces reach this agent gate; closed workspace
+            // removal is an explicit action and does not query a departed agent.
             if !closed_now || registry.entries[index]["merge_request"]["provenance"] == "manual" {
                 let agent = settled(executor, entry, true)?;
                 bind_late_session(&mut registry, index, &agent)?;
@@ -6155,7 +6365,7 @@ mod tests {
     }
 
     #[test]
-    fn close_now_remove_later_is_explicitly_unavailable_without_querying_departed_agent() {
+    fn closed_integrated_workspace_can_remove_checkout_without_querying_departed_agent() {
         let fixture = Fixture::managed();
         fixture.integrated();
         let mut close = Fake::legacy_closed();
@@ -6164,41 +6374,84 @@ mod tests {
         close.json(fixture.inventory(false, true));
         let result = act_with(&fixture.main, ID, Action::CloseWorkspace, &mut close).unwrap();
         assert_eq!(result.status, WorktreeStatus::WorkspaceClosed);
-        assert!(
-            result
-                .detail
-                .unwrap()
-                .contains("removal unavailable after workspace closure")
+        assert!(result.detail.unwrap().contains("Integration is verified"));
+        let source_tip = tip(&fixture.source, "HEAD").unwrap();
+        let mut later = Fake::legacy_closed();
+        later.json(fixture.inventory(false, true));
+        later.json(fixture.inventory(false, true));
+        later.json(fixture.inventory(false, false));
+        let removed = act_with(&fixture.main, ID, Action::RemoveCheckout, &mut later).unwrap();
+        assert_eq!(removed.status, WorktreeStatus::CheckoutRemoved);
+        assert!(!fixture.source.exists());
+        assert_eq!(
+            tip(&fixture.main, &format!("refs/heads/{BRANCH}")).unwrap(),
+            source_tip
         );
-        let mut later = Fake::default();
+        assert!(
+            later
+                .calls
+                .iter()
+                .all(|call| call.first().is_none_or(|arg| arg != "agent"))
+        );
+    }
+
+    #[test]
+    fn closed_workspace_removal_refuses_reopened_herdr_checkout() {
+        let fixture = Fixture::managed();
+        fixture.integrated();
+        let mut registry = Registry::open(&fixture.main).unwrap();
+        registry.entries[0]["workspace_closed"] = json!(true);
+        registry.save().unwrap();
+        drop(registry);
+        let mut executor = Fake::legacy_closed();
+        executor.json(fixture.inventory(true, true));
+        let error = act_with(&fixture.main, ID, Action::RemoveCheckout, &mut executor).unwrap_err();
+        assert!(error.to_string().contains("checkout as open"));
+        assert!(fixture.source.exists());
+    }
+
+    #[test]
+    fn closed_workspace_requires_explicit_removal_even_with_automatic_cleanup() {
+        let fixture = Fixture::managed();
+        fixture.integrated();
+        let mut registry = Registry::open(&fixture.main).unwrap();
+        registry.entries[0]["workspace_closed"] = json!(true);
+        registry.save().unwrap();
+        drop(registry);
+        let mut executor = Fake::legacy_closed();
         let rows = reconcile_with(
             &fixture.main,
             CleanupPolicy {
-                auto_merge: true,
-                auto_merge_children: true,
-                auto_close_workspace: true,
                 auto_remove_checkout: true,
+                ..CleanupPolicy::default()
             },
-            &mut later,
+            &mut executor,
         )
         .unwrap();
         assert_eq!(rows[0].status, WorktreeStatus::WorkspaceClosed);
-        assert!(
-            rows[0]
-                .detail
-                .as_ref()
-                .unwrap()
-                .contains("non-force worktree removal")
-        );
-        assert!(later.calls.is_empty());
-        assert!(
-            act_with(&fixture.main, ID, Action::RemoveCheckout, &mut later)
-                .unwrap_err()
-                .to_string()
-                .contains("Do not reuse the closed ID")
-        );
-        assert!(later.calls.is_empty());
         assert!(fixture.source.exists());
+        assert!(executor.calls.is_empty());
+    }
+
+    #[test]
+    fn closed_workspace_removal_refuses_unintegrated_or_dirty_checkout() {
+        for integrated in [false, true] {
+            let fixture = Fixture::managed();
+            if integrated {
+                fixture.integrated();
+                fs::write(fixture.source.join("uncommitted"), "keep me").unwrap();
+            } else {
+                Fixture::commit_at(&fixture.source, "task", "not integrated\n");
+            }
+            let mut registry = Registry::open(&fixture.main).unwrap();
+            registry.entries[0]["workspace_closed"] = json!(true);
+            registry.save().unwrap();
+            drop(registry);
+            let mut executor = Fake::legacy_closed();
+            assert!(act_with(&fixture.main, ID, Action::RemoveCheckout, &mut executor).is_err());
+            assert!(fixture.source.exists());
+            assert!(executor.calls.is_empty());
+        }
     }
 
     #[test]

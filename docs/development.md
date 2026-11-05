@@ -446,9 +446,14 @@ agent-session metadata is not required for an explicitly confirmed manual merge,
 but current Git identity, cleanliness and ancestry checks still apply. Native
 idle/sequence evidence is not proof of a particular prompt turn completing.
 Cleanup revalidates the current Herdr workspace/path/branch mapping before any
-mutation. Untouched launch-base branches remain unmerged. Close-first/remove-later
-is explicitly unsupported; recovery guidance avoids guessing a closed workspace
-ID or invoking force removal.
+mutation. Untouched launch-base branches remain unmerged. If a workspace closed
+before checkout removal, OnTrack can remove the checkout through Git after it
+verifies the recorded repository, branch, clean source and target, integrated
+ancestry, absence of an open Herdr workspace for that path, and absence of
+tracked child checkouts. It uses non-force `git worktree remove`, preserves the
+branch, and confirms both path removal and Git registration before clearing the
+recovery state. An uncertain result is inspected on refresh and is never retried
+automatically.
 ## Screenshot descriptions
 
 `src/screenshots.rs` reads PNG and JPEG clipboard data using `wl-paste` or `xclip`, limits images to 10 MiB, and stores them in the shared workspace reported by `bd where --json`. The create/edit form inserts an absolute Markdown image path only after the bytes are saved. The Herdr launch prompt extracts these references from the live description and lists paths for the agent to inspect. Image storage is local and separate from Beads records and Git worktrees; do not assume remote sync or embed binary data in Herdr text prompts.

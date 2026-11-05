@@ -74,4 +74,7 @@
 export:
     auto: false
 sync:
-    remote: "git+ssh://git@github.com/ThomasJRyan/OnTrack.git"
+    remote: "git+https://github.com/guibleme/macross-x-ontrack.git"
+routing:
+    mode: explicit
+    default: .
