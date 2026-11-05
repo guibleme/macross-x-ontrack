@@ -281,7 +281,7 @@ fn create_child_args(
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "OnTrack parent state cannot be inherited by child",
+                "MXO parent state cannot be inherited by child",
             ));
         }
         args.push(format!("--labels={label}"));

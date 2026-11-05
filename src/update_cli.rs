@@ -1,4 +1,4 @@
-//! Explicit terminal command for checking and installing an OnTrack release.
+//! Explicit terminal command for checking and installing an MXO release.
 use crate::update::{self, Available, Check};
 use std::{
     io::{self, BufRead, Write},
@@ -21,16 +21,16 @@ fn run_with(
 ) -> io::Result<()> {
     writeln!(
         output,
-        "Checking for OnTrack updates (running v{})…",
+        "Checking for MXO updates (running v{})…",
         env!("CARGO_PKG_VERSION")
     )?;
     match check()? {
-        Check::Current => writeln!(output, "OnTrack is up to date."),
-        Check::NoPublishedRelease => writeln!(output, "No public OnTrack release is available."),
+        Check::Current => writeln!(output, "MXO is up to date."),
+        Check::NoPublishedRelease => writeln!(output, "No public MXO release is available."),
         Check::Available(release) => {
             writeln!(
                 output,
-                "OnTrack v{} is available.\n{}",
+                "MXO v{} is available.\n{}",
                 release.version, release.page
             )?;
             write!(output, "Install this verified release? [y/N] ")?;
@@ -47,14 +47,11 @@ fn run_with(
             }
             writeln!(
                 output,
-                "Downloading and verifying OnTrack v{}…",
+                "Downloading and verifying MXO v{}…",
                 release.version
             )?;
             install(&release)?;
-            writeln!(
-                output,
-                "OnTrack updated. Restart any running OnTrack session."
-            )
+            writeln!(output, "MXO updated. Restart any running MXO session.")
         }
     }
 }
@@ -67,10 +64,10 @@ mod tests {
     fn available() -> Check {
         Check::Available(Available {
             version: "1.2.0".into(),
-            page: "https://github.com/ThomasJRyan/OnTrack/releases/tag/v1.2.0".into(),
+            page: "https://github.com/guibleme/macross-x-ontrack/releases/tag/v1.2.0".into(),
             asset_name: "asset.tar.gz".into(),
-            asset_url: "https://github.com/ThomasJRyan/OnTrack/releases/download/v1.2.0/asset.tar.gz".into(),
-            checksum_url: "https://github.com/ThomasJRyan/OnTrack/releases/download/v1.2.0/asset.tar.gz.sha256".into(),
+            asset_url: "https://github.com/guibleme/macross-x-ontrack/releases/download/v1.2.0/asset.tar.gz".into(),
+            checksum_url: "https://github.com/guibleme/macross-x-ontrack/releases/download/v1.2.0/asset.tar.gz.sha256".into(),
             digest: None,
         })
     }
@@ -78,8 +75,8 @@ mod tests {
     #[test]
     fn reports_current_and_missing_release_without_installing() {
         for (status, expected) in [
-            (Check::Current, "OnTrack is up to date"),
-            (Check::NoPublishedRelease, "No public OnTrack release"),
+            (Check::Current, "MXO is up to date"),
+            (Check::NoPublishedRelease, "No public MXO release"),
         ] {
             let mut output = Vec::new();
             run_with(
@@ -124,11 +121,7 @@ mod tests {
         )
         .unwrap();
         assert!(installed.get());
-        assert!(
-            String::from_utf8(output)
-                .unwrap()
-                .contains("OnTrack updated")
-        );
+        assert!(String::from_utf8(output).unwrap().contains("MXO updated"));
     }
 
     #[test]

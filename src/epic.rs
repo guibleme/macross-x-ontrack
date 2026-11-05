@@ -82,7 +82,7 @@ fn result(bytes: &[u8], expected: &str) -> io::Result<Value> {
 pub fn launch(epic_id: &str) -> io::Result<Session> {
     let cwd = std::env::current_dir()?;
     let source_id = std::env::var("HERDR_WORKSPACE_ID")
-        .map_err(|_| invalid("Open OnTrack inside a Herdr workspace to plan an Epic"))?;
+        .map_err(|_| invalid("Open MXO inside a Herdr workspace to plan an Epic"))?;
     launch_with(&mut System, &cwd, &source_id, epic_id)
 }
 
@@ -203,7 +203,7 @@ fn launch_with(
         )));
     }
     let prompt = format!(
-        "Create actionable direct child Beads for Epic {epic_id} from the proposal below. Read AGENTS.md and CLAUDE.md first. Use bd create with --parent={epic_id} for each child; give each task a useful description and acceptance criteria. Choose a Beads priority for each child on the P0-P4 scale (P0 highest, P4 lowest), comparing the tasks by impact, urgency, and which work enables other tasks. Pass --priority=N explicitly on every bd create. Make meaningful priority distinctions when the proposal supports them instead of assigning every child the same default priority. Equal priorities are fine when tasks are genuinely comparable or the proposal gives too little evidence; do not invent urgency just to vary the numbers. Do not implement the tasks. Verify at least one direct child exists. Report the child IDs and then finish your turn. The OnTrack parent process will verify and close this planning tab; if it is no longer running, close only this tab ({}) after verification and only if another tab remains. Keep its workspace ({}) open.\n\nProposal:\n{proposal}",
+        "Create actionable direct child Beads for Epic {epic_id} from the proposal below. Read AGENTS.md and CLAUDE.md first. Use bd create with --parent={epic_id} for each child; give each task a useful description and acceptance criteria. Choose a Beads priority for each child on the P0-P4 scale (P0 highest, P4 lowest), comparing the tasks by impact, urgency, and which work enables other tasks. Pass --priority=N explicitly on every bd create. Make meaningful priority distinctions when the proposal supports them instead of assigning every child the same default priority. Equal priorities are fine when tasks are genuinely comparable or the proposal gives too little evidence; do not invent urgency just to vary the numbers. Do not implement the tasks. Verify at least one direct child exists. Report the child IDs and then finish your turn. The MXO parent process will verify and close this planning tab; if it is no longer running, close only this tab ({}) after verification and only if another tab remains. Keep its workspace ({}) open.\n\nProposal:\n{proposal}",
         session.tab_id, session.workspace_id
     );
     // Wait for the server to observe this prompt's working state before a

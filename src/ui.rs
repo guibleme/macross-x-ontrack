@@ -8,15 +8,12 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
 };
 use std::time::{Duration, Instant};
-const ASCII_LOGO: [&str; 8] = [
-    "    ███████               ███████████                              █████     ",
-    "  ███▒▒▒▒▒███            ▒█▒▒▒███▒▒▒█                             ▒▒███      ",
-    " ███     ▒▒███ ████████  ▒   ▒███  ▒  ████████   ██████    ██████  ▒███ █████",
-    "▒███      ▒███▒▒███▒▒███     ▒███    ▒▒███▒▒███ ▒▒▒▒▒███  ███▒▒███ ▒███▒▒███ ",
-    "▒███      ▒███ ▒███ ▒███     ▒███     ▒███ ▒▒▒   ███████ ▒███ ▒▒▒  ▒██████▒  ",
-    "▒▒███     ███  ▒███ ▒███     ▒███     ▒███      ███▒▒███ ▒███  ███ ▒███▒▒███ ",
-    " ▒▒▒███████▒   ████ █████    █████    █████    ▒▒████████▒▒██████  ████ █████",
-    "   ▒▒▒▒▒▒▒    ▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒    ▒▒▒▒▒      ▒▒▒▒▒▒▒▒  ▒▒▒▒▒▒  ▒▒▒▒ ▒▒▒▒▒ ",
+const ASCII_LOGO: [&str; 5] = [
+    "███╗   ███╗██╗  ██╗ ██████╗ ",
+    "████╗ ████║╚██╗██╔╝██╔═══██╗",
+    "██╔████╔██║ ╚███╔╝ ██║   ██║",
+    "██║╚██╔╝██║ ██╔██╗ ██║   ██║",
+    "██║ ╚═╝ ██║██╔╝ ██╗╚██████╔╝",
 ];
 const SPLASH_DURATION: Duration = Duration::from_millis(1200);
 const EGG_ART: [&str; 51] = [
@@ -194,7 +191,7 @@ fn splash_lines(
     } else {
         vec![
             Line::from(Span::styled(
-                "ONTRACK",
+                "MXO",
                 Style::default().fg(teal).add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
@@ -379,7 +376,7 @@ pub fn render(f: &mut Frame, elapsed: Duration, app: &mut App) {
             Paragraph::new(if app.modal.is_some() {
                 "Resize terminal"
             } else {
-                "ontrack · expand terminal"
+                "mxo · expand terminal"
             })
             .style(Style::default().fg(muted))
             .alignment(Alignment::Center),
@@ -431,7 +428,7 @@ pub fn render(f: &mut Frame, elapsed: Duration, app: &mut App) {
                     .bg(palette.selected_background)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::raw("  ONTRACK  /  WORKSPACE ISSUES"),
+            Span::raw("  MXO  /  WORKSPACE ISSUES"),
         ]),
         app,
     );
@@ -2768,7 +2765,7 @@ mod tests {
         let idle = draw_at((100, 30), Duration::ZERO, &mut app);
         let wave = draw_at((100, 30), Duration::from_millis(300), &mut app);
         let blink = draw_at((100, 30), Duration::from_millis(600), &mut app);
-        assert!(idle.contains("███████"));
+        assert!(idle.contains("███╗"));
         assert!(idle.contains("o   o"));
         assert!(wave.contains("o/"));
         assert!(blink.contains("-   -"));
@@ -2785,12 +2782,12 @@ mod tests {
     #[test]
     fn splash_uses_character_and_title_when_compact_and_text_when_tiny() {
         let mut app = app();
-        let compact = draw_at((60, 18), Duration::from_millis(300), &mut app);
-        assert!(compact.contains("ONTRACK"));
+        let compact = draw_at((27, 18), Duration::from_millis(300), &mut app);
+        assert!(compact.contains("MXO"));
         assert!(compact.contains(".-\"\"\"-."));
-        assert!(!compact.contains("███████"));
+        assert!(!compact.contains("███╗"));
         let tiny = draw_at((24, 7), Duration::from_millis(300), &mut app);
-        assert!(tiny.contains("ONTRACK"));
+        assert!(tiny.contains("MXO"));
         assert!(!tiny.contains(".-\"\"\"-."));
         app.help = Some(crate::hotkeys::Help {
             context: crate::hotkeys::Context::Issues,
@@ -4048,7 +4045,7 @@ mod tests {
             .collect::<String>();
         assert!(text.contains("SETTINGS"));
         assert!(text.contains("Light"));
-        assert!(text.contains("› OnTrack Light"));
+        assert!(text.contains("› MXO Light"));
         assert!(text.contains("Close"));
         assert!(!text.contains("[ Save ]"));
         assert!(!text.contains("Cancel"));
@@ -4136,8 +4133,8 @@ mod tests {
             assert_eq!(locate(buffer, label).0, title_x);
         }
         assert_eq!(title_x, 10);
-        assert_eq!(locate(buffer, "OnTrack Dark ▾").0, 53);
-        assert_eq!(locate(buffer, "› OnTrack Dark").0, 53);
+        assert_eq!(locate(buffer, "MXO Dark ▾").0, 55);
+        assert_eq!(locate(buffer, "› MXO Dark").0, 55);
         for label in [
             "Auto-merge top-level tasks",
             "Auto-merge child tasks into parent",
@@ -4269,7 +4266,7 @@ mod tests {
                     rendered.contains("Title is visible"),
                     "{theme:?} at {size:?}"
                 );
-                assert!(rendered.contains("ONTRACK"), "{theme:?} at {size:?}");
+                assert!(rendered.contains("MXO"), "{theme:?} at {size:?}");
                 app.modal = Some(crate::app::Modal::Settings {
                     draft: crate::settings::Settings {
                         theme,
@@ -4326,7 +4323,7 @@ mod tests {
         assert!(late.contains("System"));
         assert!(!late.contains("↓ later themes"));
         assert!(late.contains("↑ earlier themes"));
-        assert!(!late.contains("OnTrack Dark"));
+        assert!(!late.contains("MXO Dark"));
         assert!(app.modal_ready);
 
         app.modal = Some(crate::app::Modal::Settings {

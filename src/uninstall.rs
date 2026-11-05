@@ -1,4 +1,4 @@
-//! Remove this user's OnTrack installation without opening a Beads workspace.
+//! Remove this user's MXO installation without opening a Beads workspace.
 use std::{
     fs,
     io::{self, BufRead, Write},
@@ -15,7 +15,7 @@ impl Targets {
         let executable = std::env::current_exe()?;
         let settings_dir = crate::settings::config_path()?
             .parent()
-            .ok_or_else(|| invalid("OnTrack settings path has no parent"))?
+            .ok_or_else(|| invalid("MXO settings path has no parent"))?
             .to_path_buf();
         let targets = Self {
             executable,
@@ -29,10 +29,10 @@ impl Targets {
         if self
             .executable
             .file_name()
-            .is_none_or(|name| name != "ontrack")
+            .is_none_or(|name| name != "ontrack" && name != "mxo")
         {
             return Err(invalid(
-                "Refusing to remove an executable not named ontrack",
+                "Refusing to remove an executable not named mxo or ontrack",
             ));
         }
         let executable = fs::symlink_metadata(&self.executable)?;
@@ -50,12 +50,12 @@ impl Targets {
                 .parent()
                 .is_none_or(|base| !base.is_absolute() || base == Path::new("/"))
         {
-            return Err(invalid("Refusing an unsafe OnTrack settings path"));
+            return Err(invalid("Refusing an unsafe MXO settings path"));
         }
         match fs::symlink_metadata(&self.settings_dir) {
             Ok(metadata) if metadata.file_type().is_dir() => Ok(()),
             Ok(_) => Err(invalid(
-                "Refusing to remove a symlink or non-directory OnTrack settings path",
+                "Refusing to remove a symlink or non-directory MXO settings path",
             )),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
             Err(error) => Err(error),
@@ -74,7 +74,7 @@ impl Targets {
                 return Err(io::Error::new(
                     error.kind(),
                     format!(
-                        "Could not remove OnTrack settings at {}: {error}",
+                        "Could not remove MXO settings at {}: {error}",
                         self.settings_dir.display()
                     ),
                 ));
@@ -86,7 +86,7 @@ impl Targets {
             io::Error::new(
                 error.kind(),
                 format!(
-                    "Could not remove OnTrack executable at {}: {error}",
+                    "Could not remove MXO executable at {}: {error}",
                     self.executable.display()
                 ),
             )
@@ -123,12 +123,12 @@ pub fn run(yes: bool) -> io::Result<()> {
     let mut output = io::stdout().lock();
     writeln!(
         output,
-        "Remove OnTrack executable: {}",
+        "Remove MXO executable: {}",
         targets.executable.display()
     )?;
     writeln!(
         output,
-        "Remove OnTrack settings: {}",
+        "Remove MXO settings: {}",
         targets.settings_dir.display()
     )?;
     if !yes {
@@ -142,10 +142,7 @@ pub fn run(yes: bool) -> io::Result<()> {
         }
     }
     targets.remove(&original_executable)?;
-    writeln!(
-        output,
-        "OnTrack uninstalled. Beads and Herdr were not changed."
-    )?;
+    writeln!(output, "MXO uninstalled. Beads and Herdr were not changed.")?;
     Ok(())
 }
 

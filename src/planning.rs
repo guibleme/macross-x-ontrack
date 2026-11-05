@@ -1,4 +1,4 @@
-//! Interactive planning session. Herdr carries the conversation; OnTrack owns issue creation.
+//! Interactive planning session. Herdr carries the conversation; MXO owns issue creation.
 
 use std::{io, path::Path, process::Command};
 
@@ -78,7 +78,7 @@ fn checked_session(session: &Session) -> io::Result<()> {
 pub fn launch(proposal: &str, marker: &str) -> io::Result<Session> {
     let cwd = std::env::current_dir()?.canonicalize()?;
     let source_id = std::env::var("HERDR_WORKSPACE_ID")
-        .map_err(|_| invalid("Open OnTrack inside a Herdr workspace to plan"))?;
+        .map_err(|_| invalid("Open MXO inside a Herdr workspace to plan"))?;
     launch_with(&cwd, &source_id, proposal, marker, run)
 }
 
@@ -116,7 +116,7 @@ fn launch_with(
         .to_str()
         .ok_or_else(|| invalid("Current checkout path is not UTF-8"))?;
     let created = command(&[
-        "tab", "create", "--workspace", source_id, "--cwd", cwd, "--label", "OnTrack planning", "--no-focus",
+        "tab", "create", "--workspace", source_id, "--cwd", cwd, "--label", "MXO planning", "--no-focus",
     ])
     .and_then(|bytes| envelope(&bytes, "tab_created"))
     .map_err(|error| io::Error::other(format!(
@@ -182,7 +182,7 @@ fn launch_with(
         })?;
     check_agent(&started, &session, "agent_started")?;
     let prompt = format!(
-        "You are planning new Beads for this workspace. Read AGENTS.md and CLAUDE.md and inspect relevant project context. Discuss the proposal with the user through OnTrack. Do not create, update, close, or implement Beads. Do not call an interactive question tool; ask the user by ending your turn with exactly one single-line JSON message prefixed by {marker} followed by one space. For a question use keys kind=question, text (string), options (array of 2-5 concise strings). For a final plan use kind=plan, issue_type=task or epic, root (object with title, description, acceptance, priority integer 0-4), tasks (array of objects with the same four fields; empty for a task, at least two for an epic). Keep JSON on one line, without a code fence. The root and each task must have actionable descriptions and testable acceptance. Ask clarifying questions when needed. If the user requests a revision, issue another question or plan. Finish your turn after the JSON. Never write Beads; OnTrack presents the plan for explicit confirmation and creates them.\n\nProposal:\n{proposal}"
+        "You are planning new Beads for this workspace. Read AGENTS.md and CLAUDE.md and inspect relevant project context. Discuss the proposal with the user through MXO. Do not create, update, close, or implement Beads. Do not call an interactive question tool; ask the user by ending your turn with exactly one single-line JSON message prefixed by {marker} followed by one space. For a question use keys kind=question, text (string), options (array of 2-5 concise strings). For a final plan use kind=plan, issue_type=task or epic, root (object with title, description, acceptance, priority integer 0-4), tasks (array of objects with the same four fields; empty for a task, at least two for an epic). Keep JSON on one line, without a code fence. The root and each task must have actionable descriptions and testable acceptance. Ask clarifying questions when needed. If the user requests a revision, issue another question or plan. Finish your turn after the JSON. Never write Beads; MXO presents the plan for explicit confirmation and creates them.\n\nProposal:\n{proposal}"
     );
     submit_with(&session, &prompt, &mut command)?;
     Ok(session)

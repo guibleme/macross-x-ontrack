@@ -39,7 +39,7 @@ pub const CATALOG: [ThemeDefinition; 40] = [
     ThemeDefinition {
         theme: Theme::Dark,
         id: "dark",
-        name: "OnTrack Dark",
+        name: "MXO Dark",
         is_light: false,
         palette: Palette {
             background: rgb(13, 23, 28),
@@ -62,7 +62,7 @@ pub const CATALOG: [ThemeDefinition; 40] = [
     ThemeDefinition {
         theme: Theme::Light,
         id: "light",
-        name: "OnTrack Light",
+        name: "MXO Light",
         is_light: true,
         palette: Palette {
             background: rgb(246, 248, 247),

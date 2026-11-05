@@ -249,7 +249,7 @@ fn config_path_from(xdg: Option<OsString>, home: Option<OsString>) -> io::Result
         .ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::NotFound,
-                "Cannot locate OnTrack settings: HOME is unavailable or not absolute. Set HOME or XDG_CONFIG_HOME to an absolute path.",
+                "Cannot locate MXO settings: HOME is unavailable or not absolute. Set HOME or XDG_CONFIG_HOME to an absolute path.",
             )
         })
 }

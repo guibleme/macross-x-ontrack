@@ -19,7 +19,7 @@ fn require_herdr_workspace(marker: Option<&OsStr>) -> io::Result<()> {
     }
     Err(io::Error::new(
         io::ErrorKind::PermissionDenied,
-        "OnTrack must be launched inside a Herdr workspace. Open a Herdr workspace and run ontrack from its shell.",
+        "MXO must be launched inside a Herdr workspace. Open a Herdr workspace and run mxo from its shell.",
     ))
 }
 
@@ -68,13 +68,13 @@ fn setup(
     if highlight {
         writeln!(
             output,
-            "No Beads workspace found. Run {} in your project, then launch OnTrack again.",
+            "No Beads workspace found. Run {} in your project, then launch MXO again.",
             command.bold()
         )?;
     } else {
         writeln!(
             output,
-            "No Beads workspace found. Run {command} in your project, then launch OnTrack again."
+            "No Beads workspace found. Run {command} in your project, then launch MXO again."
         )?;
     }
     output.flush()?;
@@ -182,7 +182,7 @@ mod tests {
             let transcript = String::from_utf8(transcript).unwrap();
             assert!(transcript.contains("No Beads workspace found. Run "));
             assert!(transcript.contains("bd init"));
-            assert!(transcript.ends_with("then launch OnTrack again.\n"));
+            assert!(transcript.ends_with("then launch MXO again.\n"));
             if highlight {
                 assert!(transcript.contains("\x1b[1mbd init\x1b[0m"));
             } else {

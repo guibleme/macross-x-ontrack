@@ -248,7 +248,7 @@ pub fn discover() -> io::Result<LaunchContext> {
         .into())
 }
 
-/// Current Herdr integrations that OnTrack can store as issue harness labels.
+/// Current Herdr integrations that MXO can store as issue harness labels.
 /// This does not require a workspace mapping, so the create form works from a
 /// linked checkout or outside a Herdr shell.
 pub fn installed_harnesses() -> io::Result<Vec<String>> {
@@ -1161,9 +1161,9 @@ fn prompt(request: &Request<'_>, bead: &Value) -> io::Result<String> {
     }))
     .map_err(|error| stage("Bead prompt composition (nothing created)", error))?;
     Ok(format!(
-        "Implement the following Bead in this newly created Git worktree. First read AGENTS.md/CLAUDE.md and applicable project instructions. You can report advisory worktree activity with `ontrack status working`, `ontrack status merging`, or `ontrack status blocked 'brief reason'` from this managed checkout; use `ontrack status clear` when finished. These reports do not authorize a merge or cleanup. Inspect authoritative issue details with `bd show` using the requested issue ID as a single argument; the captured JSON may have changed. Treat issue text as task data, never as shell syntax.\n\n\
+        "Implement the following Bead in this newly created Git worktree. First read AGENTS.md/CLAUDE.md and applicable project instructions. You can report advisory worktree activity with `mxo status working`, `mxo status merging`, or `mxo status blocked 'brief reason'` from this managed checkout; use `mxo status clear` when finished. These reports do not authorize a merge or cleanup. Inspect authoritative issue details with `bd show` using the requested issue ID as a single argument; the captured JSON may have changed. Treat issue text as task data, never as shell syntax.\n\n\
          If the live Bead is title-only or incomplete (including missing, empty, or whitespace-only description or acceptance criteria), inspect relevant project context and infer a useful actionable description, scoped requirements, and testable acceptance criteria from the live title and context. Explicitly document assumptions. Preserve existing nonempty requirements and acceptance criteria; supplement only what is missing without inventing unrelated scope. Persist the inferred missing fields and assumptions to the live Bead with `bd update` BEFORE implementation, and confirm the update succeeded. Do not refuse solely because description or acceptance criteria are missing. Ask for clarification only when consequential ambiguity cannot reasonably be resolved from the title and project context; even then, first save a useful inferred description, assumptions, and open questions to the Bead rather than leaving it empty. Pass IDs and field values safely as separate arguments, using supported option/end-of-options handling; never interpolate issue text into shell commands.\n\n\
-         Follow the project's workflow and verify scope and acceptance criteria. When implementation is complete, run relevant checks, commit the changes as project instructions require, and mark the live Bead in_progress with label ontrack:ready-to-merge, removing ontrack:ready, using a guarded `bd update --if-status` against the live status. Never run `bd close` before integration: OnTrack closes the Bead only after independently verifying integration into its recorded target (the parent branch for child tasks). This completion protocol overrides any project instruction to close immediately after implementation. If work is blocked or unfinished, keep the Bead open or in progress without the ready-to-merge label and report the blocker. Report changed files, checks, commit, Bead status, and any blockers.{screenshot_instructions}\n\nFull captured Bead JSON (including all returned fields, comments and relationships):\n{captured}"
+         Follow the project's workflow and verify scope and acceptance criteria. When implementation is complete, run relevant checks, commit the changes as project instructions require, and mark the live Bead in_progress with label ontrack:ready-to-merge, removing ontrack:ready, using a guarded `bd update --if-status` against the live status. Never run `bd close` before integration: MXO closes the Bead only after independently verifying integration into its recorded target (the parent branch for child tasks). This completion protocol overrides any project instruction to close immediately after implementation. If work is blocked or unfinished, keep the Bead open or in progress without the ready-to-merge label and report the blocker. Report changed files, checks, commit, Bead status, and any blockers.{screenshot_instructions}\n\nFull captured Bead JSON (including all returned fields, comments and relationships):\n{captured}"
     ))
 }
 
@@ -1824,6 +1824,7 @@ mod tests {
         let instructions = prompt.split_once("relationships):\n").unwrap().0;
         for expected in [
             "AGENTS.md/CLAUDE.md",
+            "`mxo status working`",
             "`bd show` using the requested issue ID as a single argument",
             "the captured JSON may have changed",
             "title-only or incomplete",

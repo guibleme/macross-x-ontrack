@@ -1,4 +1,4 @@
-//! Explicit, verified replacement of the running OnTrack executable.
+//! Explicit, verified replacement of the running MXO executable.
 use semver::Version;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -12,8 +12,8 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-const RELEASE_API: &str = "https://api.github.com/repos/ThomasJRyan/OnTrack/releases/latest";
-const RELEASE_PREFIX: &str = "https://github.com/ThomasJRyan/OnTrack/releases/download/";
+const RELEASE_API: &str = "https://api.github.com/repos/guibleme/macross-x-ontrack/releases/latest";
+const RELEASE_PREFIX: &str = "https://github.com/guibleme/macross-x-ontrack/releases/download/";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Available {
@@ -50,7 +50,7 @@ fn target() -> io::Result<&'static str> {
         ("macos", "aarch64") => Ok("aarch64-apple-darwin"),
         _ => Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "No OnTrack release asset supports this operating system and architecture",
+            "No MXO release asset supports this operating system and architecture",
         )),
     }
 }
@@ -76,10 +76,8 @@ pub fn parse_latest(body: &[u8], current: &str, target: &str) -> io::Result<Chec
     let page = release["html_url"]
         .as_str()
         .ok_or_else(|| invalid("Release has no page"))?;
-    if page != format!("https://github.com/ThomasJRyan/OnTrack/releases/tag/{tag}") {
-        return Err(invalid(
-            "Release page is not the official OnTrack repository",
-        ));
+    if page != format!("https://github.com/guibleme/macross-x-ontrack/releases/tag/{tag}") {
+        return Err(invalid("Release page is not the MXO repository"));
     }
     let assets = release["assets"]
         .as_array()
@@ -131,7 +129,7 @@ pub fn parse_latest(body: &[u8], current: &str, target: &str) -> io::Result<Chec
     }
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
-        format!("Release {tag} has no {target} OnTrack archive and matching .sha256 asset"),
+        format!("Release {tag} has no {target} MXO archive and matching .sha256 asset"),
     ))
 }
 
@@ -163,7 +161,7 @@ fn curl(url: &str) -> Command {
         "--max-time",
         "120",
         "--user-agent",
-        "OnTrack-updater",
+        "MXO-updater",
         "--header",
         "Accept: application/vnd.github+json",
     ])
@@ -183,7 +181,7 @@ fn fetch_small(url: &str) -> io::Result<Vec<u8>> {
         {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
-                "No published OnTrack release",
+                "No published MXO release",
             ));
         }
         return Err(io::Error::other(format!(
@@ -422,7 +420,7 @@ pub fn install(release: &Available, cancel: &AtomicBool) -> io::Result<()> {
     let (download, file) = stage_file(dir).map_err(|e| {
         io::Error::new(
             e.kind(),
-            format!("Cannot stage update beside executable: {e}. Check directory permissions or install OnTrack in a user-owned location"),
+            format!("Cannot stage update beside executable: {e}. Check directory permissions or install MXO in a user-owned location"),
         )
     })?;
     download_to(&release.asset_url, file, cancel)?;
@@ -455,7 +453,7 @@ mod tests {
         let name = format!("ontrack-{tag}-x86_64-unknown-linux-gnu.tar.gz");
         serde_json::to_vec(&json!({
             "tag_name":tag,
-            "html_url":format!("https://github.com/ThomasJRyan/OnTrack/releases/tag/{tag}"),
+            "html_url":format!("https://github.com/guibleme/macross-x-ontrack/releases/tag/{tag}"),
             "assets":[
                 {"name":name,"browser_download_url":format!("{RELEASE_PREFIX}{tag}/{name}"),"digest":format!("sha256:{}", "a".repeat(64))},
                 {"name":format!("{name}.sha256"),"browser_download_url":format!("{RELEASE_PREFIX}{tag}/{name}.sha256")}

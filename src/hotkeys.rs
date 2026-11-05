@@ -221,7 +221,7 @@ impl Context {
             self,
             Self::Issues | Self::Details | Self::EpicIssues | Self::EpicDetails | Self::Worktrees
         ) {
-            rows.push(("q / Ctrl+C", "Quit ontrack"));
+            rows.push(("q / Ctrl+C", "Quit mxo"));
         }
         rows
     }

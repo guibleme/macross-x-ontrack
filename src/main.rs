@@ -50,12 +50,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         [flag] if flag == "--help" || flag == "-h" => {
             println!(
-                "Usage: ontrack [update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]\n\nRun without arguments to browse the current Beads workspace.\nUpdate checks for a newer compatible release and asks before installing it.\nStatus reports advisory activity for the current managed checkout; clear removes it.\nUninstall removes the running OnTrack executable and user settings after confirmation."
+                "Usage: mxo [update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]\n\nRun without arguments to browse the current Beads workspace.\nUpdate checks for a newer compatible release and asks before installing it.\nStatus reports advisory activity for the current managed checkout; clear removes it.\nUninstall removes the running MXO executable and user settings after confirmation."
             );
             return Ok(());
         }
         _ => return Err(
-            "Usage: ontrack [update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]"
+            "Usage: mxo [update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]"
                 .into(),
         ),
     }

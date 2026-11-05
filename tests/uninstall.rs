@@ -50,6 +50,26 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn mxo_executable_can_be_uninstalled_with_existing_settings() {
+    let fixture = Fixture::new();
+    fs::rename(fixture.0.join("bin/ontrack"), fixture.0.join("bin/mxo")).unwrap();
+    let output = Command::new(fixture.0.join("bin/mxo"))
+        .args(["uninstall", "--yes"])
+        .current_dir(&fixture.0)
+        .env("HOME", &fixture.0)
+        .env("XDG_CONFIG_HOME", fixture.0.join("config"))
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!fixture.0.join("bin/mxo").exists());
+    assert!(!fixture.0.join("config/ontrack").exists());
+}
+
+#[test]
 fn confirmed_uninstall_removes_only_ontrack_installation() {
     let fixture = Fixture::new();
     let output = fixture
@@ -63,8 +83,8 @@ fn confirmed_uninstall_removes_only_ontrack_installation() {
         String::from_utf8_lossy(&output.stderr)
     );
     let message = String::from_utf8(output.stdout).unwrap();
-    assert!(message.contains("Remove OnTrack executable:"));
-    assert!(message.contains("Remove OnTrack settings:"));
+    assert!(message.contains("Remove MXO executable:"));
+    assert!(message.contains("Remove MXO settings:"));
     assert!(!fixture.0.join("bin/ontrack").exists());
     assert!(!fixture.0.join("config/ontrack").exists());
     for name in ["bd", "herdr"] {

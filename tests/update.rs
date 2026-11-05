@@ -39,7 +39,7 @@ fn update_runs_outside_herdr_and_beads_without_opening_the_browser() {
         String::from_utf8_lossy(&result.stderr)
     );
     let stdout = String::from_utf8(result.stdout).unwrap();
-    assert!(stdout.contains("OnTrack is up to date."), "{stdout}");
+    assert!(stdout.contains("MXO is up to date."), "{stdout}");
     assert!(!stdout.contains("No Beads workspace"));
     assert!(!stdout.contains("\u{1b}[?1049h"));
 }

@@ -6,8 +6,8 @@ Dark is the default theme. Forty built-in themes are available:
 
 | Stable ID | Display name | Style |
 | --- | --- | --- |
-| `dark` | OnTrack Dark | Dark |
-| `light` | OnTrack Light | Light |
+| `dark` | MXO Dark | Dark |
+| `light` | MXO Light | Light |
 | `tokyo-night` | Tokyo Night | Dark |
 | `nord` | Nord | Dark |
 | `dracula` | Dracula | Dark |
