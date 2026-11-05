@@ -1276,11 +1276,18 @@ pub fn render(f: &mut Frame, elapsed: Duration, app: &mut App) {
                 );
             }
             crate::app::Modal::ConfirmWorktree { id, action } => {
+                let workspace_closed = app.worktrees.iter().any(|item| {
+                    item.id == *id
+                        && item.status == crate::worktrees::WorktreeStatus::WorkspaceClosed
+                });
                 let action = match action {
                     0 => {
                         "Request merge resolution from the recorded agent? This is pending, not merged."
                     }
                     1 => "Close the integrated Herdr workspace?",
+                    2 if workspace_closed => {
+                        "Remove the clean, integrated checkout from Git? The Herdr workspace is already closed. The branch is preserved."
+                    }
                     2 => {
                         "Remove integrated checkout and close its Herdr workspace? Branch is preserved."
                     }
@@ -1922,8 +1929,20 @@ fn render_worktree_drawer(f: &mut Frame, screen: Rect, app: &mut App, now: Insta
         area.width.saturating_sub(4),
         2,
     );
-    f.render_widget(
-        Paragraph::new(vec![
+    let closed_workspace = app
+        .worktrees
+        .get(app.selected_worktree)
+        .is_some_and(|item| item.status == crate::worktrees::WorktreeStatus::WorkspaceClosed);
+    let footer_lines = if closed_workspace {
+        vec![
+            Line::from(truncate_display(
+                "x remove integrated checkout · Esc back",
+                footer.width as usize,
+            )),
+            Line::default(),
+        ]
+    } else {
+        vec![
             Line::from(truncate_display(
                 "Enter switch · m merge · c close",
                 footer.width as usize,
@@ -1932,8 +1951,11 @@ fn render_worktree_drawer(f: &mut Frame, screen: Rect, app: &mut App, now: Insta
                 "x remove · X force · a continue · R restart",
                 footer.width as usize,
             )),
-        ])
-        .style(Style::default().fg(palette.muted).bg(palette.panel_alt)),
+        ]
+    };
+    f.render_widget(
+        Paragraph::new(footer_lines)
+            .style(Style::default().fg(palette.muted).bg(palette.panel_alt)),
         footer,
     );
 }
@@ -3693,6 +3715,29 @@ mod tests {
         let with_focus = draw((80, 16), &mut app).0;
         assert!(with_focus.contains("Switched workspace"));
         assert!(app.detail_rect.height > 0);
+    }
+
+    #[test]
+    fn closed_workspace_drawer_offers_only_integrated_checkout_removal() {
+        let mut app = app();
+        app.worktrees_view = true;
+        app.worktrees.push(crate::worktrees::ManagedWorktree {
+            id: "handoff-closed".into(),
+            bead_id: "closed-1".into(),
+            parent_bead_id: None,
+            handoff_accepted: true,
+            bead_title: None,
+            bead_description: None,
+            branch: "ontrack/closed-1".into(),
+            target_branch: "main".into(),
+            workspace_id: "ws-7".into(),
+            status: crate::worktrees::WorktreeStatus::WorkspaceClosed,
+            detail: None,
+        });
+        let screen = draw((120, 24), &mut app).0;
+        assert!(screen.contains("x remove integrated checkout"));
+        assert!(!screen.contains("m merge"));
+        assert!(!screen.contains("c close"));
     }
 
     #[test]

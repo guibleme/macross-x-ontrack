@@ -2248,8 +2248,13 @@ impl App {
             return;
         };
         if action == 1 && item.status != worktrees::WorktreeStatus::Integrated {
-            self.worktrees_error =
-                Some("Cleanup is available only after verified integration".into());
+            self.worktrees_error = Some(
+                if item.status == worktrees::WorktreeStatus::WorkspaceClosed {
+                    "Workspace is already closed. Use x to remove the integrated checkout.".into()
+                } else {
+                    "Cleanup is available only after verified integration".into()
+                },
+            );
             return;
         }
         if action == 2
@@ -2271,7 +2276,13 @@ impl App {
                     | worktrees::WorktreeStatus::NeedsResolution
             )
         {
-            self.worktrees_error = Some("This worktree is not ready for a merge request".into());
+            self.worktrees_error = Some(
+                if item.status == worktrees::WorktreeStatus::WorkspaceClosed {
+                    "Integration is already verified. Use x to remove the closed checkout.".into()
+                } else {
+                    "This worktree is not ready for a merge request".into()
+                },
+            );
             return;
         }
         if matches!(action, 3 | 5)
