@@ -1,4 +1,8 @@
-# OnTrack
+# Macross × OnTrack
+
+UI-adapter fork of [ThomasJRyan/OnTrack](https://github.com/ThomasJRyan/OnTrack). The original TUI remains available. See the [local JSON adapter](docs/ui-adapter.md) for integration from Macross or another local interface.
+
+## Upstream OnTrack
 
 **Turn your backlog into agent work, without leaving the terminal.**
 

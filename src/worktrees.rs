@@ -1316,13 +1316,13 @@ fn continue_task_with(cwd: &Path, id: &str, executor: &mut impl Executor) -> io:
             "Live Bead is missing or no longer open; continue cancelled",
         ));
     }
-    // A matching native session is required. A missing or replaced agent can
-    // instead use the existing confirmed fresh-start action.
+    // OpenCode may publish its native session only after the initial prompt.
+    // Bind it only through the existing terminal, lifecycle and checkout checks.
     if !entry["agent_session"].is_object() {
-        return Err(error(
-            "Original native agent session was not recorded; use fresh start or inspect in Herdr",
-        ));
+        let observed = settled(executor, entry, true)?;
+        bind_late_session(&mut registry, index, &observed)?;
     }
+    let entry = &registry.entries[index];
     let pane = field(entry, "pane_id")?.to_owned();
     let workspace = field(entry, "workspace_id")?.to_owned();
     let kind = field(entry, "agent")?.to_owned();
@@ -2745,6 +2745,24 @@ fn reconcile_with(
         .collect())
 }
 
+pub fn status_label(status: WorktreeStatus) -> &'static str {
+    use WorktreeStatus::*;
+    match status {
+        Reserved => "PREPARED",
+        InProgress => "IN PROGRESS",
+        Blocked => "BLOCKED",
+        Unmerged => "READY TO MERGE",
+        MergeQueued => "MERGE QUEUED",
+        MergeRequested => "MERGE PENDING",
+        MergeInProgress => "MERGE IN PROGRESS",
+        NeedsResolution => "NEEDS RESOLUTION",
+        Integrated => "INTEGRATED",
+        WorkspaceClosed => "WORKSPACE CLOSED",
+        CheckoutRemoved => "CHECKOUT REMOVED",
+        DirtyCheckout => "UNCOMMITTED CHANGES",
+        NeedsAttention => "NEEDS ATTENTION",
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4164,6 +4182,61 @@ mod tests {
         let mut retry = Fake::default();
         assert!(continue_task_with(&fixture.main, ID, &mut retry).is_err());
         assert!(retry.calls.is_empty());
+    }
+
+    #[test]
+    fn continue_binds_late_session_only_after_verified_terminal_activity() {
+        let fixture = Fixture::managed();
+        fixture.simulate_legacy_late_session();
+        let mut executor = Fake {
+            bead: Some(json!({"id": "Bead-1", "status": "in_progress"})),
+            ..Fake::default()
+        };
+        executor.json(fixture.inventory(true, true));
+        executor.json(fixture.late_session_agent(12, "idle"));
+        executor.json(fixture.late_session_agent(12, "idle"));
+        executor.json(fixture.inventory(true, true));
+        executor.json(fixture.prompt_result());
+        assert!(continue_task_with(&fixture.main, ID, &mut executor).is_ok());
+        let registry = Registry::open(&fixture.main).unwrap();
+        assert_eq!(registry.entries[0]["agent_session"]["value"], "session-1");
+        assert_eq!(registry.entries[0]["initial_terminal_id"], "term-task");
+    }
+
+    #[test]
+    fn continue_rejects_unverified_late_session_without_binding_or_prompting() {
+        for invalid in ["terminal", "activity", "session", "cwd", "working"] {
+            let fixture = Fixture::managed();
+            fixture.simulate_legacy_late_session();
+            let mut executor = Fake {
+                bead: Some(json!({"id": "Bead-1", "status": "in_progress"})),
+                ..Fake::default()
+            };
+            let mut agent = fixture.late_session_agent(12, "idle");
+            match invalid {
+                "terminal" => agent["result"]["agent"]["terminal_id"] = json!("replaced"),
+                "activity" => agent["result"]["agent"]["state_change_seq"] = json!(10),
+                "session" => agent["result"]["agent"]["agent_session"] = Value::Null,
+                "cwd" => agent["result"]["agent"]["foreground_cwd"] = json!(fixture.main),
+                "working" => agent["result"]["agent"]["agent_status"] = json!("working"),
+                _ => unreachable!(),
+            }
+            executor.json(fixture.inventory(true, true));
+            executor.json(agent);
+            assert!(
+                continue_task_with(&fixture.main, ID, &mut executor).is_err(),
+                "{invalid}"
+            );
+            assert!(
+                !executor
+                    .calls
+                    .iter()
+                    .any(|call| call.get(1).is_some_and(|s| s == "prompt"))
+            );
+            let registry = Registry::open(&fixture.main).unwrap();
+            assert!(registry.entries[0]["agent_session"].is_null());
+            assert!(registry.entries[0]["continue_prompt_pending"].is_null());
+        }
     }
 
     #[test]

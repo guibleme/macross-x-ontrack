@@ -3115,38 +3115,8 @@ fn status_order(status: &str) -> usize {
         .position(|&known| known == status)
         .unwrap_or(0)
 }
-pub fn display_status(bead: &Bead) -> &str {
-    if beads::ready_to_merge_record(&bead.data) {
-        "ready_to_merge"
-    } else if beads::is_ready(bead) {
-        "ready"
-    } else {
-        match bead.status.as_str() {
-            "blocked" => "blocked",
-            "in_progress" => "in_progress",
-            "closed" => "closed",
-            _ => "open",
-        }
-    }
-}
-pub(super) fn worktree_status_label(status: worktrees::WorktreeStatus) -> &'static str {
-    use worktrees::WorktreeStatus::*;
-    match status {
-        Reserved => "PREPARED",
-        InProgress => "IN PROGRESS",
-        Blocked => "BLOCKED",
-        Unmerged => "READY TO MERGE",
-        MergeQueued => "MERGE QUEUED",
-        MergeRequested => "MERGE PENDING",
-        MergeInProgress => "MERGE IN PROGRESS",
-        NeedsResolution => "NEEDS RESOLUTION",
-        Integrated => "INTEGRATED",
-        WorkspaceClosed => "WORKSPACE CLOSED",
-        CheckoutRemoved => "CHECKOUT REMOVED",
-        DirtyCheckout => "UNCOMMITTED CHANGES",
-        NeedsAttention => "NEEDS ATTENTION",
-    }
-}
+pub use crate::beads::display_status;
+pub(super) use crate::worktrees::status_label as worktree_status_label;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DisplayRow {
     Group(String),

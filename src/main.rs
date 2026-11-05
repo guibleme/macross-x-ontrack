@@ -5,6 +5,7 @@ mod epic;
 mod event;
 mod herdr;
 mod hotkeys;
+mod interface;
 mod planning;
 mod screenshots;
 mod settings;
@@ -22,6 +23,12 @@ use std::{error::Error, io};
 fn main() -> Result<(), Box<dyn Error>> {
     match std::env::args_os().skip(1).collect::<Vec<_>>().as_slice() {
         [] => {}
+        [command] if command == "api" => {
+            std::process::exit(if interface::run(false)? { 0 } else { 1 });
+        }
+        [command, flag] if command == "api" && flag == "--allow-writes" => {
+            std::process::exit(if interface::run(true)? { 0 } else { 1 });
+        }
         [command] if command == "update" => {
             update_cli::run()?;
             return Ok(());
@@ -50,12 +57,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         [flag] if flag == "--help" || flag == "-h" => {
             println!(
-                "Usage: ontrack [update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]\n\nRun without arguments to browse the current Beads workspace.\nUpdate checks for a newer compatible release and asks before installing it.\nStatus reports advisory activity for the current managed checkout; clear removes it.\nUninstall removes the running OnTrack executable and user settings after confirmation."
+                "Usage: ontrack [api [--allow-writes] | update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]\n\nRun without arguments to browse the current Beads workspace.\nAPI reads one versioned JSON request from stdin without a terminal; writes require --allow-writes.\nUpdate checks for a newer compatible release and asks before installing it.\nStatus reports advisory activity for the current managed checkout; clear removes it.\nUninstall removes the running OnTrack executable and user settings after confirmation."
             );
             return Ok(());
         }
         _ => return Err(
-            "Usage: ontrack [update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]"
+            "Usage: ontrack [api [--allow-writes] | update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]"
                 .into(),
         ),
     }

@@ -6,6 +6,7 @@
 - Run `cargo run` in a terminal with alternate-screen support, not a non-interactive runner.
 - When working with Herdr integrations, reference https://herdr.dev/docs.
 - When working with Beads, reference https://beads.gascity.com.
+- Preserve the TUI. Local GUI integrations use the JSON adapter in `docs/ui-adapter.md` and existing domain functions, without a mirrored task store. The automatic scheduler currently runs in the TUI; do not claim the adapter is an independent daemon.
 
 ## Checks and invariants
 
@@ -31,7 +32,7 @@ cargo build
 - Use `bd` for all task tracking and `bd remember` for persistent memory; do not create markdown TODO or MEMORY files.
 - Issues live in the local Dolt database (`.beads/dolt/`). `.beads/issues.jsonl` is a passive export, not the source of truth; do not run `bd import` during normal work.
 - All changes must be committed with semantic commit messages (e.g. `docs: refresh agent instructions`).
-- Git currently has no remote. Do not push or run Dolt remote sync without an explicit request.
+- This is Macross × OnTrack. `origin` is `guibleme/macross-x-ontrack`; `upstream` is `ThomasJRyan/OnTrack`. Do not push or run Dolt remote sync without an explicit request.
 - Keep `AGENTS.md` and `CLAUDE.md` identical; they are independently tracked files.
 - At handoff, report changed files, checks performed, issue status, and any blockers.
 

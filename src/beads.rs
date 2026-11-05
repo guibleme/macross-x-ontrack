@@ -782,6 +782,27 @@ fn parse_show(bytes: &[u8], id: &str) -> io::Result<Value> {
     })
 }
 
+pub fn display_status(bead: &Bead) -> &str {
+    if ready_to_merge_record(&bead.data) {
+        "ready_to_merge"
+    } else if is_ready(bead) {
+        "ready"
+    } else {
+        match bead.status.as_str() {
+            "blocked" => "blocked",
+            "in_progress" => "in_progress",
+            "closed" => "closed",
+            _ => "open",
+        }
+    }
+}
+/// Comment text remains a single argv value, never shell syntax.
+pub fn add_comment(id: &str, text: &str) -> io::Result<Value> {
+    validate_id(id)?;
+    let output = run_bd(&["--no-color", "comments", "add", "--json", "--", id, text])?;
+    serde_json::from_slice(&output).map_err(|e| invalid_data(e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
