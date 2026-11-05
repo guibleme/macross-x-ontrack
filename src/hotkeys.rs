@@ -45,7 +45,9 @@ impl Context {
             Some(Modal::ConfirmClose { .. }) => Self::Close,
             Some(Modal::Move { .. }) => Self::Move,
             Some(Modal::ConfirmDelete { .. }) => Self::Delete,
-            Some(Modal::ConfirmWorktree { .. }) => Self::WorktreeConfirm,
+            Some(Modal::ConfirmWorktree { .. }) | Some(Modal::ReviewResult { .. }) => {
+                Self::WorktreeConfirm
+            }
             None if app.worktrees_view => Self::Worktrees,
             None if app.selected_is_epic() && app.focus_detail => Self::EpicDetails,
             None if app.selected_is_epic() => Self::EpicIssues,
@@ -143,6 +145,10 @@ impl Context {
                 ),
                 ("a", "Ask original idle agent to continue in this checkout"),
                 ("Shift+R", "Restart selected active task"),
+                (
+                    "v / Shift+V",
+                    "Accept exact result / request changes with evidence",
+                ),
                 ("r", "Refresh outstanding worktrees"),
                 ("w / Esc / Backspace", "Return to issue browser"),
             ],

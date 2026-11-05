@@ -188,7 +188,7 @@ impl Default for Settings {
             default_agent: DefaultAgent::default(),
             agent_limit: AgentLimit::default(),
             auto_merge: false,
-            auto_merge_children: true,
+            auto_merge_children: false,
             auto_close_workspace: false,
             auto_remove_checkout: false,
             animate_drawers: true,
@@ -314,7 +314,7 @@ pub fn load_from(path: &Path) -> io::Result<Settings> {
         default_agent,
         agent_limit,
         auto_merge: boolean("auto_merge", false)?,
-        auto_merge_children: boolean("auto_merge_children", true)?,
+        auto_merge_children: boolean("auto_merge_children", false)?,
         auto_close_workspace: boolean("auto_close_workspace", false)?,
         auto_remove_checkout: boolean("auto_remove_checkout", false)?,
         animate_drawers: boolean("animate_drawers", true)?,
@@ -493,7 +493,7 @@ mod tests {
                 ..Settings::default()
             }
         );
-        assert!(load_from(&directory.path()).unwrap().auto_merge_children);
+        assert!(!load_from(&directory.path()).unwrap().auto_merge_children);
         let settings = Settings {
             theme: Theme::Nord,
             default_agent: DefaultAgent::Kind("codex"),
@@ -580,9 +580,9 @@ mod tests {
     }
 
     #[test]
-    fn child_auto_merge_defaults_on_and_rejects_non_boolean_values() {
+    fn child_auto_merge_defaults_off_and_rejects_non_boolean_values() {
         let directory = TestDirectory::new();
-        assert!(load_from(&directory.path()).unwrap().auto_merge_children);
+        assert!(!load_from(&directory.path()).unwrap().auto_merge_children);
         for value in ["null", "0", "\"false\""] {
             directory.write(&format!("{{\"auto_merge_children\":{value}}}"));
             let error = load_from(&directory.path()).unwrap_err();
@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn absolute_xdg_path_takes_precedence_over_home() {
         assert_eq!(
-            config_path_from(Some("/xdg".into()), Some("/home/user".into())).unwrap(),
+            config_path_from(Some("/xdg".into()), Some("/example-home".into())).unwrap(),
             PathBuf::from("/xdg/ontrack/settings.json")
         );
         assert_eq!(
@@ -671,8 +671,8 @@ mod tests {
     fn absent_empty_or_relative_xdg_uses_absolute_home() {
         for xdg in [None, Some("".into()), Some("relative".into())] {
             assert_eq!(
-                config_path_from(xdg, Some("/home/user".into())).unwrap(),
-                PathBuf::from("/home/user/.config/ontrack/settings.json")
+                config_path_from(xdg, Some("/example-home".into())).unwrap(),
+                PathBuf::from("/example-home/.config/ontrack/settings.json")
             );
         }
     }

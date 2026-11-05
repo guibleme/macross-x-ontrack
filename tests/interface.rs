@@ -39,7 +39,7 @@ fn capabilities_work_without_a_tty_or_herdr() {
     assert!(success);
     assert_eq!(response["id"], "hello");
     assert_eq!(response["version"], 1);
-    assert_eq!(response["result"]["automatic_scheduler"], "tui");
+    assert_eq!(response["result"]["automatic_scheduler"], "shared-runtime");
     assert_eq!(response["result"]["transport"], "local-json-command");
 }
 

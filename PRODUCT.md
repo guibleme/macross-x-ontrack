@@ -1,0 +1,5 @@
+# Macross × Ontrack
+
+register: product
+
+A local workfront application for one person coordinating research and software delivery across coding agents. A front preserves goals, conversations, documents, evidence, decisions and versioned plans when sessions or agents change. Plans contain waves. Each admitted wave binds one Bead. Agent execution, integration and human acceptance remain separate. The desktop and terminal share one runtime. Connectors are optional, project scoped and visible in settings. The initial user needs a dependable daily work surface, readable at a desk in mixed daylight and evening light, with clear states and small deliberate actions. Use calm neutral surfaces, readable evidence and restrained warm accents. Do not introduce corporate identity, vendor preference, mock activity or unsupported controls. An empty installation should explain the first useful action. Research and execution must retain their provenance and uncertainty. Settings must distinguish disconnected sources from stopped execution.

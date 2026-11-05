@@ -558,6 +558,7 @@ pub fn render(f: &mut Frame, elapsed: Duration, app: &mut App) {
                 if form.dropdown.is_some() { 22 } else { 18 }
             }
             crate::app::Modal::EditLoading { .. } => 8,
+            crate::app::Modal::ReviewResult { .. } => 15,
             crate::app::Modal::Move { .. } => 10,
             crate::app::Modal::ConfirmGenerateEpic { .. }
             | crate::app::Modal::ConfirmClose { .. }
@@ -622,6 +623,8 @@ pub fn render(f: &mut Frame, elapsed: Duration, app: &mut App) {
                 crate::app::Modal::Move { .. } => " MOVE BEAD ",
                 crate::app::Modal::ConfirmGenerateEpic { .. } => " GENERATE EPIC TASKS? ",
                 crate::app::Modal::ConfirmClose { .. } => " CLOSE BEAD? ",
+                crate::app::Modal::ReviewResult { accept: true, .. } => " ACCEPT RESULT ",
+                crate::app::Modal::ReviewResult { .. } => " REQUEST CHANGES ",
                 crate::app::Modal::Settings { .. } => " SETTINGS ",
                 crate::app::Modal::ConfirmWorktree { action: 3, .. } => " RESTART TASK? ",
                 crate::app::Modal::ConfirmWorktree { action: 4, .. } => " CONTINUE TASK? ",
@@ -1274,6 +1277,24 @@ pub fn render(f: &mut Frame, elapsed: Duration, app: &mut App) {
                         .style(Style::default().fg(ink)),
                     inner,
                 );
+            }
+            crate::app::Modal::ReviewResult {
+                id,
+                revision,
+                accept,
+                evidence,
+            } => {
+                let action = if *accept {
+                    "Accept this exact result"
+                } else {
+                    "Request changes for this result"
+                };
+                let status = if app.mutation_busy {
+                    "Recording review…"
+                } else {
+                    "Type criteria evidence or a reason. Enter submits. Esc cancels."
+                };
+                f.render_widget(Paragraph::new(format!("{action}\nWorktree: {id}\nCommit: {revision}\n\nEvidence: {evidence}\n\n{status}\nAcceptance does not merge, close or clean up.")).wrap(Wrap{trim:false}).style(Style::default().fg(ink)),inner);
             }
             crate::app::Modal::ConfirmWorktree { id, action } => {
                 let action = match action {
@@ -2530,6 +2551,7 @@ mod tests {
             accepted_handoffs: std::collections::HashSet::new(),
             known_handoffs: std::collections::HashSet::new(),
             scheduler_attempted: std::collections::HashSet::new(),
+            last_handoff_failure: None,
             selected_worktree: 0,
             worktree_offset: 0,
             worktree_detail_offset: 0,
@@ -3981,7 +4003,7 @@ mod tests {
         let mut a = app();
         a.focus_detail = true;
         a.theme = crate::settings::Theme::Light;
-        let storage_error = "Could not save settings to '/home/alexander/.config/ontrack/settings.json': Permission denied while replacing the destination file. Check the parent directory permissions and try again.";
+        let storage_error = "Could not save settings to '/example-home/.config/ontrack/settings.json': Permission denied while replacing the destination file. Check the parent directory permissions and try again.";
         a.modal = Some(crate::app::Modal::Settings {
             draft: crate::settings::Settings {
                 theme: crate::settings::Theme::Light,
@@ -4067,6 +4089,7 @@ mod tests {
         state.modal = Some(crate::app::Modal::Settings {
             draft: crate::settings::Settings {
                 auto_merge: true,
+                auto_merge_children: true,
                 auto_remove_checkout: true,
                 ..Default::default()
             },

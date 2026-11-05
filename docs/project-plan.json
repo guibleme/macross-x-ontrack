@@ -1,0 +1,342 @@
+{
+  "version": "macross-pivot-v1",
+  "baseline": "ea8d43500540ddbca238a5afaf87353d7c30a1a6",
+  "requirements": [
+    {
+      "id": "REQ-1"
+    },
+    {
+      "id": "REQ-2"
+    },
+    {
+      "id": "REQ-3"
+    },
+    {
+      "id": "REQ-4"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "requirement_refs": [
+        "REQ-1"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "requirement_refs": [
+        "REQ-2"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "requirement_refs": [
+        "REQ-3"
+      ]
+    },
+    {
+      "id": "AC-4",
+      "requirement_refs": [
+        "REQ-4"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "SCN-1",
+      "requirement_refs": [
+        "REQ-1"
+      ]
+    },
+    {
+      "id": "SCN-2",
+      "requirement_refs": [
+        "REQ-2"
+      ]
+    },
+    {
+      "id": "SCN-3",
+      "requirement_refs": [
+        "REQ-3"
+      ]
+    },
+    {
+      "id": "SCN-4",
+      "requirement_refs": [
+        "REQ-4"
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "id": "TEST-1",
+      "requirement_refs": [
+        "REQ-1"
+      ],
+      "scenario_refs": [
+        "SCN-1"
+      ]
+    },
+    {
+      "id": "TEST-2",
+      "requirement_refs": [
+        "REQ-2"
+      ],
+      "scenario_refs": [
+        "SCN-2"
+      ]
+    },
+    {
+      "id": "TEST-3",
+      "requirement_refs": [
+        "REQ-3"
+      ],
+      "scenario_refs": [
+        "SCN-3"
+      ]
+    },
+    {
+      "id": "TEST-4",
+      "requirement_refs": [
+        "REQ-4"
+      ],
+      "scenario_refs": [
+        "SCN-4"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "MS-1",
+      "task_refs": [
+        "W1",
+        "W2",
+        "W3",
+        "W4",
+        "W5",
+        "W6",
+        "W7",
+        "W8"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "W1",
+      "bead": "otp-n7w",
+      "depends_on": [],
+      "write_scope": [
+        "ui/package.json",
+        "ui/web",
+        "ui/electron"
+      ],
+      "parallel_group": null,
+      "requirement_refs": [
+        "REQ-1"
+      ],
+      "acceptance_refs": [
+        "AC-1"
+      ],
+      "scenario_refs": [
+        "SCN-1"
+      ],
+      "test_refs": [
+        "TEST-1"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    },
+    {
+      "id": "W2",
+      "bead": "otp-3jf",
+      "depends_on": [
+        "W1"
+      ],
+      "write_scope": [
+        "contracts"
+      ],
+      "parallel_group": null,
+      "requirement_refs": [
+        "REQ-2"
+      ],
+      "acceptance_refs": [
+        "AC-2"
+      ],
+      "scenario_refs": [
+        "SCN-2"
+      ],
+      "test_refs": [
+        "TEST-2"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    },
+    {
+      "id": "W3",
+      "bead": "otp-5u8",
+      "depends_on": [
+        "W2"
+      ],
+      "write_scope": [
+        "src/runtime.rs",
+        "src/app.rs",
+        "src/main.rs"
+      ],
+      "parallel_group": null,
+      "requirement_refs": [
+        "REQ-2"
+      ],
+      "acceptance_refs": [
+        "AC-2"
+      ],
+      "scenario_refs": [
+        "SCN-2"
+      ],
+      "test_refs": [
+        "TEST-2"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    },
+    {
+      "id": "W4",
+      "bead": "otp-ilj",
+      "depends_on": [
+        "W3"
+      ],
+      "write_scope": [
+        "src/interface.rs",
+        "src/planning.rs",
+        "src/worktrees.rs"
+      ],
+      "parallel_group": null,
+      "requirement_refs": [
+        "REQ-2"
+      ],
+      "acceptance_refs": [
+        "AC-2"
+      ],
+      "scenario_refs": [
+        "SCN-2"
+      ],
+      "test_refs": [
+        "TEST-2"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    },
+    {
+      "id": "W5",
+      "bead": "otp-oj5",
+      "depends_on": [
+        "W4"
+      ],
+      "write_scope": [
+        "ui/server/fronts",
+        "ui/server/store"
+      ],
+      "parallel_group": "domain",
+      "requirement_refs": [
+        "REQ-4"
+      ],
+      "acceptance_refs": [
+        "AC-4"
+      ],
+      "scenario_refs": [
+        "SCN-4"
+      ],
+      "test_refs": [
+        "TEST-4"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    },
+    {
+      "id": "W6",
+      "bead": "otp-1zu",
+      "depends_on": [
+        "W4"
+      ],
+      "write_scope": [
+        "ui/server/plugins",
+        "ui/server/config"
+      ],
+      "parallel_group": "domain",
+      "requirement_refs": [
+        "REQ-3"
+      ],
+      "acceptance_refs": [
+        "AC-3"
+      ],
+      "scenario_refs": [
+        "SCN-3"
+      ],
+      "test_refs": [
+        "TEST-3"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    },
+    {
+      "id": "W7",
+      "bead": "otp-d8r",
+      "depends_on": [
+        "W5",
+        "W6"
+      ],
+      "write_scope": [
+        "ui/web",
+        "ui/electron"
+      ],
+      "parallel_group": null,
+      "requirement_refs": [
+        "REQ-4"
+      ],
+      "acceptance_refs": [
+        "AC-4"
+      ],
+      "scenario_refs": [
+        "SCN-4"
+      ],
+      "test_refs": [
+        "TEST-4"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    },
+    {
+      "id": "W8",
+      "bead": "otp-65k",
+      "depends_on": [
+        "W7"
+      ],
+      "write_scope": [
+        "ui/test",
+        "docs"
+      ],
+      "parallel_group": null,
+      "requirement_refs": [
+        "REQ-4"
+      ],
+      "acceptance_refs": [
+        "AC-4"
+      ],
+      "scenario_refs": [
+        "SCN-4"
+      ],
+      "test_refs": [
+        "TEST-4"
+      ],
+      "milestone_refs": [
+        "MS-1"
+      ]
+    }
+  ]
+}

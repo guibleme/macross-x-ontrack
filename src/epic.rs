@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::{beads, herdr};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Session {
     pub workspace_id: String,
     pub tab_id: String,

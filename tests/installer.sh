@@ -13,6 +13,11 @@ case "$1" in
   -m) printf '%s\n' "${FAKE_ARCH:-x86_64}" ;;
 esac
 EOF
+cat > "$work/mock/getconf" <<'EOF'
+#!/usr/bin/env bash
+[[ "$1" == GNU_LIBC_VERSION && "${FAKE_LIBC:-glibc}" == glibc ]] || exit 1
+printf 'glibc 2.39\n'
+EOF
 cat > "$work/mock/curl" <<'EOF'
 #!/usr/bin/env bash
 [[ "${FAKE_CURL_FAIL:-}" != yes ]] || exit 22
@@ -93,6 +98,7 @@ expect_failure 'refusing to replace symlink' bash "$installer" --install-dir "$w
 expect_failure 'could not resolve the latest stable release' env FAKE_CURL_FAIL=yes bash "$installer" --install-dir "$work/install" --replace
 expect_failure 'unsupported operating system' env FAKE_OS=FreeBSD bash "$installer"
 expect_failure 'unsupported CPU architecture' env FAKE_ARCH=riscv64 bash "$installer"
+expect_failure 'requires glibc' env FAKE_LIBC=musl bash "$installer"
 expect_failure 'cannot create install directory' bash "$installer" --install-dir /dev/null/ontrack-installer-test
 mkdir -p "$work/no-deps"
 for executable in bash uname getconf curl python3; do

@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::{beads, epic::Session, herdr};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Item {
     pub title: String,
     pub description: String,
@@ -14,14 +14,14 @@ pub struct Item {
     pub priority: u8,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Plan {
     pub kind: String,
     pub root: Item,
     pub tasks: Vec<Item>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Message {
     Question { text: String, options: Vec<String> },
     Plan(Plan),

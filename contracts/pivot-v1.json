@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "identity": "macross-pivot-v1",
+  "ownership": {
+    "front": "macross",
+    "plan": "macross",
+    "wave": "macross",
+    "task": "beads",
+    "run": "ontrack",
+    "resultAcceptance": "ontrack",
+    "integration": "ontrack"
+  },
+  "axes": {
+    "planning": [
+      "draft",
+      "approved",
+      "withdrawn"
+    ],
+    "dependencies": [
+      "unknown",
+      "pending",
+      "satisfied",
+      "invalid"
+    ],
+    "execution": [
+      "not_started",
+      "queued",
+      "starting",
+      "running",
+      "blocked",
+      "succeeded",
+      "failed",
+      "unknown"
+    ],
+    "review": [
+      "pending",
+      "accepted",
+      "changes_requested",
+      "invalidated"
+    ],
+    "integration": [
+      "not_integrated",
+      "requested",
+      "integrating",
+      "integrated",
+      "conflict",
+      "unknown"
+    ],
+    "command": [
+      "recorded",
+      "dispatched",
+      "confirmed",
+      "failed",
+      "unknown"
+    ]
+  },
+  "pluginKinds": [
+    "source",
+    "executor",
+    "session",
+    "intelligence"
+  ],
+  "invariants": [
+    "One admitted wave binds one Bead. Retries preserve that binding.",
+    "Approval does not dispatch. Connection enablement does not authorize execution.",
+    "Agent and provider identities never determine transition semantics.",
+    "Commands persist intent before side effects. Unknown effects must reconcile before retry.",
+    "Accepted result identity and verified integration are both required for delivery.",
+    "Changing a result invalidates its prior acceptance.",
+    "Disconnect does not cancel accepted work.",
+    "Native task and run records remain authoritative in their owning service."
+  ],
+  "commandFields": [
+    "requestId",
+    "operation",
+    "target",
+    "expectedRevision",
+    "payloadDigest"
+  ],
+  "agentCapabilities": [
+    "conversation.start",
+    "conversation.send",
+    "conversation.observe",
+    "execution.submit",
+    "execution.observe",
+    "interrupt",
+    "native.resume"
+  ],
+  "optionalCapabilities": [
+    "interrupt",
+    "native.resume"
+  ],
+  "sourceIdentity": [
+    "instanceId",
+    "nativeRecordId"
+  ],
+  "sourceClocks": [
+    "sourceUpdatedAt",
+    "observedAt",
+    "lastSuccessfulReadAt"
+  ]
+}

@@ -154,12 +154,12 @@ fn execute(call: Call, writes: bool) -> io::Result<Value> {
                 .iter()
                 .map(|bead| {
                     json!({
-                        "column":beads::display_status(bead), "record":bead.data,
+                        "column":beads::display_status(bead), "record":bead.data, "revision":crate::runtime::digest(&bead.data),
                     })
                 })
                 .collect(),
         )),
-        Call::Show(id) => beads::show_bead(&id),
+        Call::Show(id) => beads::show_bead(&id).map(|mut record| { let revision=crate::runtime::digest(&record);record["ontrackRevision"]=json!(revision);record }),
         Call::Create(input) => beads::create_bead(&input).map(|id| json!({"id":id})),
         Call::Comment(id, text) => beads::add_comment(&id, &text),
         Call::Ready(id, ready) => {
@@ -171,10 +171,12 @@ fn execute(call: Call, writes: bool) -> io::Result<Value> {
                 .iter()
                 .map(|item| {
                     json!({
-                        "id":item.id, "bead_id":item.bead_id, "parent_bead_id":item.parent_bead_id,
+                        "id":item.id, "active":worktrees::is_current_run(&item.id).unwrap_or(false), "bead_id":item.bead_id, "parent_bead_id":item.parent_bead_id,
                         "branch":item.branch, "target_branch":item.target_branch,
                         "workspace_id":item.workspace_id, "handoff_accepted":item.handoff_accepted,
-                        "status_label":worktrees::status_label(item.status), "detail":item.detail,
+                        "status_label":worktrees::status_label(item.status), "status":worktrees::status_code(item.status), "detail":item.detail,
+                        "execution":worktrees::execution_code(item.status), "integration":worktrees::integration_state(&item.id,item.status),
+                        "resultRevision":worktrees::result_revision(&item.id).ok(), "review":worktrees::review(&item.id).unwrap_or_else(|_| json!({"state":"pending"})),
                     })
                 })
                 .collect(),
@@ -189,7 +191,7 @@ fn error(id: Value, code: &str, message: String) -> Value {
     json!({"version":1,"id":id,"error":{"code":code,"message":message}})
 }
 
-fn respond(input: &[u8], writes: bool) -> Value {
+pub(crate) fn respond_direct(input: &[u8], writes: bool) -> Value {
     if input.len() > MAX_REQUEST {
         return error(
             Value::Null,
@@ -229,11 +231,29 @@ pub fn run(writes: bool) -> io::Result<bool> {
     io::stdin()
         .take((MAX_REQUEST + 1) as u64)
         .read_to_end(&mut input)?;
-    let response = respond(&input, writes);
+    let response = if input.len() > MAX_REQUEST {
+        error(
+            Value::Null,
+            "invalid_request",
+            "Request exceeds 65536 bytes".into(),
+        )
+    } else {
+        match serde_json::from_slice::<Value>(&input) {
+            Ok(request) => crate::runtime::client_call(request, writes),
+            Err(e) => error(Value::Null, "invalid_request", e.to_string()),
+        }
+    };
     let success = response.get("error").is_none();
     let stdout = io::stdout();
     let mut out = stdout.lock();
     serde_json::to_writer(&mut out, &response)?;
     writeln!(out)?;
     Ok(success)
+}
+
+pub(crate) fn validate(request: &Value) -> io::Result<()> {
+    decode(request).map(|_| ())
+}
+pub(crate) fn original_method(method: &str) -> bool {
+    METHODS.contains(&method)
 }

@@ -1,0 +1,1178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "macross-connectors-v1",
+  "title": "Macross transport-independent connector request v1",
+  "type": "object",
+  "properties": {
+    "protocolVersion": {
+      "const": 1
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "instanceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "configurationRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "operation": {
+      "enum": [
+        "source.describe",
+        "source.validateConfig",
+        "source.test",
+        "source.snapshot",
+        "executor.queryTasks",
+        "executor.queryRuns",
+        "executor.submitApproved",
+        "executor.reconcile",
+        "session.start",
+        "session.send",
+        "session.observe",
+        "intelligence.propose",
+        "session.interrupt",
+        "session.resume"
+      ]
+    },
+    "params": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "requestId",
+    "instanceId",
+    "projectId",
+    "configurationRevision",
+    "operation",
+    "params"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "source.describe"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "source.validateConfig"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "config": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "config"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "source.test"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "source.snapshot"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4096
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "executor.queryTasks"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4096
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "executor.queryRuns"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "taskIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "maxItems": 256
+              },
+              "cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4096
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "executor.submitApproved"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "expectedRevision": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4096
+              },
+              "payloadDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "approval": {
+                "type": "object",
+                "properties": {
+                  "actor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "scopeDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "actor",
+                  "scopeDigest"
+                ],
+                "additionalProperties": false
+              },
+              "payload": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "operationId",
+              "target",
+              "expectedRevision",
+              "payloadDigest",
+              "approval",
+              "payload"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "executor.reconcile"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "required": [
+              "operationId"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "session.start"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "frontId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "agentId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "context": {
+                "$ref": "#/$defs/context"
+              },
+              "input": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              }
+            },
+            "required": [
+              "frontId",
+              "agentId",
+              "context",
+              "input"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "session.send"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "providerRef": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "context": {
+                "$ref": "#/$defs/context"
+              },
+              "input": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              }
+            },
+            "required": [
+              "providerRef",
+              "context",
+              "input"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "session.observe"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "providerRef": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "providerRef"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "intelligence.propose"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "context": {
+                "$ref": "#/$defs/context"
+              },
+              "intent": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              }
+            },
+            "required": [
+              "context",
+              "intent"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "session.interrupt"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "providerRef": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "providerRef"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "session.resume"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "providerRef": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "agentId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "context": {
+                "$ref": "#/$defs/context"
+              }
+            },
+            "required": [
+              "providerRef",
+              "agentId",
+              "context"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "nativeRecordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4096
+        },
+        "digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "instanceId",
+        "nativeRecordId",
+        "revision",
+        "digest"
+      ],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "frontId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "maxItems": 64
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        }
+      },
+      "required": [
+        "frontId",
+        "revision",
+        "evidence",
+        "content",
+        "digest",
+        "coverage"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "included": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "complete",
+        "included",
+        "total"
+      ],
+      "additionalProperties": false
+    },
+    "sourceRecord": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "nativeRecordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4096
+        },
+        "nativeStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "sourceUpdatedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observedAt": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "instanceId",
+        "nativeRecordId",
+        "revision",
+        "nativeStatus",
+        "sourceUpdatedAt",
+        "observedAt",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "proposal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "instanceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "nativeRecordId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "revision": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4096
+              },
+              "digest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "instanceId",
+              "nativeRecordId",
+              "revision",
+              "digest"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 64
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "included": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "complete",
+            "included",
+            "total"
+          ],
+          "additionalProperties": false
+        },
+        "executionAuthorized": {
+          "const": false
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "evidence",
+        "coverage",
+        "executionAuthorized"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "protocolVersion": 1,
+  "limits": {
+    "records": 256,
+    "contextBytes": 262144,
+    "outputBytes": 262144,
+    "inputBytes": 32768,
+    "proposalBytes": 65536
+  },
+  "requiredOperations": {
+    "source": [
+      "source.describe",
+      "source.validateConfig",
+      "source.test",
+      "source.snapshot"
+    ],
+    "executor": [
+      "executor.queryTasks",
+      "executor.queryRuns",
+      "executor.submitApproved",
+      "executor.reconcile"
+    ],
+    "session": [
+      "session.start",
+      "session.send",
+      "session.observe"
+    ],
+    "intelligence": [
+      "intelligence.propose"
+    ]
+  },
+  "operations": {
+    "source.describe": {
+      "kind": "source",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "result": "Versioned descriptor, declared capabilities and configuration fields."
+    },
+    "source.validateConfig": {
+      "kind": "source",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "config"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Validation errors and credentialConfigured flags. Never return credential values."
+    },
+    "source.test": {
+      "kind": "source",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "result": "Bounded health observation with lastSuccessfulReadAt and sanitized error. No task creation, repair or dispatch."
+    },
+    "source.snapshot": {
+      "kind": "source",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "result": "records[] of sourceRecord, coverage, cursor and source health. Partial reads never prove deletion."
+    },
+    "executor.queryTasks": {
+      "kind": "executor",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "result": "Native task identities, revisions, fields, coverage and cursor. Caches never replace the source authority."
+    },
+    "executor.queryRuns": {
+      "kind": "executor",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "maxItems": 256
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "result": "Native run identities, task links, active identity, state, resultRevision and current acceptance validity."
+    },
+    "executor.submitApproved": {
+      "kind": "executor",
+      "readOnly": false,
+      "params": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "expectedRevision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096
+          },
+          "payloadDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "approval": {
+            "type": "object",
+            "properties": {
+              "actor": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "scopeDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "actor",
+              "scopeDigest"
+            ],
+            "additionalProperties": false
+          },
+          "payload": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "operationId",
+          "target",
+          "expectedRevision",
+          "payloadDigest",
+          "approval",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Durable operation identity and confirmed, failed or unknown outcome. Persist intent before effects."
+    },
+    "executor.reconcile": {
+      "kind": "executor",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "operationId"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Authoritative operation outcome and evidence. This read never blindly replays the original mutation."
+    },
+    "session.start": {
+      "kind": "session",
+      "readOnly": false,
+      "params": {
+        "type": "object",
+        "properties": {
+          "frontId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "context": {
+            "$ref": "#/$defs/context"
+          },
+          "input": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
+          }
+        },
+        "required": [
+          "frontId",
+          "agentId",
+          "context",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Opaque providerRef, selected agent identity and submission status. No implicit Bead or worktree."
+    },
+    "session.send": {
+      "kind": "session",
+      "readOnly": false,
+      "params": {
+        "type": "object",
+        "properties": {
+          "providerRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "context": {
+            "$ref": "#/$defs/context"
+          },
+          "input": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
+          }
+        },
+        "required": [
+          "providerRef",
+          "context",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Submission receipt. Context and history remain owned by the front."
+    },
+    "session.observe": {
+      "kind": "session",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "providerRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "providerRef"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Pending or answered result, bounded text, cursor and evidence. Preserve full admitted output."
+    },
+    "intelligence.propose": {
+      "kind": "intelligence",
+      "readOnly": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/context"
+          },
+          "intent": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
+          }
+        },
+        "required": [
+          "context",
+          "intent"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Proposal with evidence references and explicit coverage. It grants no execution or acceptance authority."
+    },
+    "session.interrupt": {
+      "kind": "session",
+      "readOnly": false,
+      "optional": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "providerRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "providerRef"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Requested or confirmed interruption. A request is not proof that work stopped."
+    },
+    "session.resume": {
+      "kind": "session",
+      "readOnly": false,
+      "optional": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "providerRef": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "context": {
+            "$ref": "#/$defs/context"
+          }
+        },
+        "required": [
+          "providerRef",
+          "agentId",
+          "context"
+        ],
+        "additionalProperties": false
+      },
+      "result": "Native resume receipt only when that provider supports it. No cross-provider session transfer."
+    }
+  },
+  "rules": [
+    "Host policy, not descriptor registration, grants authority.",
+    "Provider-specific transport may use stricter bounds than this contract.",
+    "Optional interrupt and native resume must be absent unless implemented. Unsupported calls return capability_unavailable without fallback.",
+    "Source identity is instanceId plus nativeRecordId. Preserve native revision, status and observation clocks.",
+    "Disabling a connector blocks new work, preserves evidence and never implies cancellation.",
+    "Every returned proposal cites admitted evidence and states coverage. No intelligence provider is active without an explicitly registered implementation.",
+    "Mutating operation IDs bind target, revision and payload digest. Unknown external effects require supported reconciliation."
+  ]
+}

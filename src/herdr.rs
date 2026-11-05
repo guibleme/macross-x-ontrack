@@ -13,25 +13,25 @@ use serde_json::{Value, json};
 
 use crate::beads::Bead;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     pub id: String,
     pub label: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Workspace {
     pub id: String,
     pub label: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LaunchContext {
     pub workspace: Workspace,
     pub agents: Vec<Agent>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LaunchOutcome {
     pub message: String,
     pub reserved: bool,
@@ -401,6 +401,30 @@ impl From<Discovery> for LaunchContext {
     }
 }
 
+fn sibling_worktree_path(main: &Path, branch: &str) -> io::Result<PathBuf> {
+    let parent = main
+        .parent()
+        .ok_or_else(|| invalid("Repository has no parent directory"))?;
+    let name = main
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| invalid("Repository name is not UTF-8"))?;
+    let slug = branch
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    if slug.is_empty() || slug.len() > 160 {
+        return Err(invalid("Worktree name exceeds limit"));
+    }
+    Ok(parent.join(format!("{name}.worktrees")).join(slug))
+}
+
 #[cfg(test)]
 fn handoff_with(
     executor: &mut impl Executor,
@@ -753,10 +777,10 @@ fn launch_with_mode(
         ));
     }
     if require_ready {
-        if !crate::beads::ready_record(&bead)
-            && !(bead["status"] == "open"
+        if !(crate::beads::ready_record(&bead)
+            || (bead["status"] == "open"
                 && bead["issue_type"] == "epic"
-                && crate::beads::labels(&bead).any(|label| label == crate::beads::READY_LABEL))
+                && crate::beads::labels(&bead).any(|label| label == crate::beads::READY_LABEL)))
         {
             return Err(io::Error::other(
                 "Scheduled Bead is no longer an open Ready issue; nothing created",
@@ -911,6 +935,14 @@ fn create_and_prompt(
             request.name,
             "--no-focus",
         ];
+        // Macross runtime requires all newly managed worktrees beside the main repository.
+        let requested_path = sibling_worktree_path(&source.checkout, branch)?;
+        let requested_path = requested_path
+            .to_str()
+            .ok_or_else(|| invalid("Worktree path is not UTF-8"))?;
+        if crate::runtime::is_owner() {
+            create_args.extend(["--path", requested_path]);
+        }
         if let Some(base) = journal.as_ref().and_then(|record| record.base_branch()) {
             create_args.extend(["--base", base]);
         }

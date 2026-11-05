@@ -50,6 +50,7 @@ pub const BOARD_STATUSES: [&str; 6] = [
     "closed",
 ];
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub(super) enum Request {
     List,
     Show(String, u64),
@@ -73,6 +74,7 @@ pub(super) enum Request {
     WorktreeAction(String, WorktreeAction),
     RestartWorktree(String),
     ContinueWorktree(String),
+    ReviewResult(String, String, bool, String),
     ReconcileWorktrees(CleanupPolicy),
     ObserveAgents,
     ReadScreenshot(u64),
@@ -81,36 +83,99 @@ pub(super) enum Request {
     PlanReply(u64, crate::epic::Session, String, String),
     PlanCreate(u64, crate::planning::Plan),
 }
+#[derive(serde::Serialize, serde::Deserialize)]
 pub(super) enum Response {
-    List(std::io::Result<Vec<Bead>>),
-    Show(String, u64, std::io::Result<serde_json::Value>),
-    EditLoaded(String, u64, std::io::Result<serde_json::Value>),
-    Created(std::io::Result<String>),
-    EpicLaunched(String, std::io::Result<crate::epic::Session>),
-    EpicFinished(String, std::io::Result<Vec<String>>),
-    Updated(String, std::io::Result<()>),
-    ReadySet(String, bool, std::io::Result<Vec<String>>),
-    FailedHandoffReset(u64, String, String, std::io::Result<()>),
-    Moved(String, String, std::io::Result<()>),
-    Closed(String, std::io::Result<()>),
-    Deleted(std::io::Result<()>),
-    HarnessesDiscovered(u64, std::io::Result<Vec<String>>),
-    Discovered(u64, std::io::Result<LaunchContext>),
-    Launched(u64, std::io::Result<LaunchOutcome>),
-    Worktrees(std::io::Result<Vec<ManagedWorktree>>),
-    WorkspaceFocused(String, std::io::Result<()>),
-    WorktreeChanged(std::io::Result<ManagedWorktree>),
-    WorktreeRestarted(std::io::Result<String>),
-    WorktreeContinued(std::io::Result<String>),
-    AgentsObserved(std::io::Result<Vec<worktrees::AgentDisplay>>),
-    ScreenshotRead(u64, std::io::Result<Vec<u8>>),
-    PlanLaunched(u64, std::io::Result<crate::epic::Session>),
+    List(#[serde(with = "crate::runtime::wire_result")] std::io::Result<Vec<Bead>>),
+    Show(
+        String,
+        u64,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<serde_json::Value>,
+    ),
+    EditLoaded(
+        String,
+        u64,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<serde_json::Value>,
+    ),
+    Created(#[serde(with = "crate::runtime::wire_result")] std::io::Result<String>),
+    EpicLaunched(
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<crate::epic::Session>,
+    ),
+    EpicFinished(
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<Vec<String>>,
+    ),
+    Updated(
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<()>,
+    ),
+    ReadySet(
+        String,
+        bool,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<Vec<String>>,
+    ),
+    FailedHandoffReset(
+        u64,
+        String,
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<()>,
+    ),
+    Moved(
+        String,
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<()>,
+    ),
+    Closed(
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<()>,
+    ),
+    Deleted(#[serde(with = "crate::runtime::wire_result")] std::io::Result<()>),
+    HarnessesDiscovered(
+        u64,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<Vec<String>>,
+    ),
+    Discovered(
+        u64,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<LaunchContext>,
+    ),
+    Launched(
+        u64,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<LaunchOutcome>,
+    ),
+    Worktrees(#[serde(with = "crate::runtime::wire_result")] std::io::Result<Vec<ManagedWorktree>>),
+    WorkspaceFocused(
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<()>,
+    ),
+    WorktreeChanged(
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<ManagedWorktree>,
+    ),
+    WorktreeRestarted(#[serde(with = "crate::runtime::wire_result")] std::io::Result<String>),
+    WorktreeContinued(#[serde(with = "crate::runtime::wire_result")] std::io::Result<String>),
+    WorktreeReviewed(#[serde(with = "crate::runtime::wire_result")] std::io::Result<String>),
+    AgentsObserved(
+        #[serde(with = "crate::runtime::wire_result")]
+        std::io::Result<Vec<worktrees::AgentDisplay>>,
+    ),
+    ScreenshotRead(
+        u64,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<Vec<u8>>,
+    ),
+    PlanLaunched(
+        u64,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<crate::epic::Session>,
+    ),
     PlanRead(
         u64,
         String,
+        #[serde(with = "crate::runtime::wire_result")]
         std::io::Result<Option<crate::planning::Message>>,
     ),
-    PlanReplied(u64, String, std::io::Result<()>),
+    PlanReplied(
+        u64,
+        String,
+        #[serde(with = "crate::runtime::wire_result")] std::io::Result<()>,
+    ),
     PlanCreated(u64, Result<Vec<String>, String>),
 }
 pub(super) enum WorktreeFocusFeedback {
@@ -170,6 +235,7 @@ pub struct App {
     pub accepted_handoffs: HashSet<String>,
     pub(crate) known_handoffs: HashSet<String>,
     pub(crate) scheduler_attempted: HashSet<String>,
+    pub(crate) last_handoff_failure: Option<(String, &'static str)>,
     pub selected_worktree: usize,
     pub worktree_offset: usize,
     pub worktree_detail_offset: u16,
@@ -242,6 +308,12 @@ pub enum Modal {
     ConfirmWorktree {
         id: String,
         action: u8,
+    },
+    ReviewResult {
+        id: String,
+        revision: String,
+        accept: bool,
+        evidence: String,
     },
 }
 
@@ -461,9 +533,18 @@ fn cycle_theme(theme: Theme, forward: bool) -> Theme {
         .unwrap_or(0);
     Theme::ALL[cycle_choice(index, Theme::ALL.len(), forward)]
 }
-fn execute_request(request: Request, out: &mpsc::Sender<Response>) {
+pub(crate) fn execute_request(request: Request, out: &mpsc::Sender<Response>) {
+    if !crate::runtime::is_owner() && !cfg!(test) {
+        crate::runtime::tui_request(request, out);
+        return;
+    }
+    let _guard = crate::runtime::domain_lock();
     let response = match request {
-        Request::List => Response::List(beads::list_browser_beads()),
+        Request::List => Response::List(if crate::runtime::is_owner() {
+            beads::list_scheduler_beads()
+        } else {
+            beads::list_browser_beads()
+        }),
         Request::Show(id, seq) => Response::Show(id.clone(), seq, beads::show_bead(&id)),
         Request::LoadEdit(id, seq) => Response::EditLoaded(id.clone(), seq, beads::show_bead(&id)),
         Request::Create(input) => Response::Created(beads::create_bead(&input)),
@@ -530,6 +611,17 @@ fn execute_request(request: Request, out: &mpsc::Sender<Response>) {
         }
         Request::RestartWorktree(id) => Response::WorktreeRestarted(worktrees::restart(&id)),
         Request::ContinueWorktree(id) => Response::WorktreeContinued(worktrees::continue_task(&id)),
+        Request::ReviewResult(id, revision, accept, evidence) => Response::WorktreeReviewed(
+            worktrees::record_review(&id, &revision, accept, serde_json::json!([evidence])).map(
+                |_| {
+                    if accept {
+                        "Current result accepted. Integration and closure remain separate.".into()
+                    } else {
+                        "Changes requested for the current result.".into()
+                    }
+                },
+            ),
+        ),
         Request::ReconcileWorktrees(policy) => Response::Worktrees(worktrees::reconcile(policy)),
         Request::ObserveAgents => Response::AgentsObserved(worktrees::observe_agents()),
     };
@@ -588,6 +680,7 @@ fn start_workers(
                     | Request::WorktreeAction(..)
                     | Request::RestartWorktree(_)
                     | Request::ContinueWorktree(_)
+                    | Request::ReviewResult(..)
                     | Request::ReconcileWorktrees(_)
             ) {
                 if managed.send(request).is_err() {
@@ -687,6 +780,7 @@ impl App {
             accepted_handoffs: HashSet::new(),
             known_handoffs: HashSet::new(),
             scheduler_attempted: HashSet::new(),
+            last_handoff_failure: None,
             selected_worktree: 0,
             worktree_offset: 0,
             worktree_detail_offset: 0,
@@ -878,6 +972,9 @@ impl App {
         false
     }
     fn scheduler_eligible(&self, bead: &Bead) -> bool {
+        if crate::runtime::has_unknown_target(&bead.id) {
+            return false;
+        }
         if self
             .handoff
             .values()
@@ -1523,7 +1620,15 @@ impl App {
                         match result {
                             Ok(context) => {
                                 let chosen = beads::harness(&pending.bead.data);
-                                let agent = if let Some(kind) = chosen {
+                                let agent = if crate::runtime::is_owner() {
+                                    let explicit = chosen.or(match self.settings.default_agent {
+                                        DefaultAgent::Kind(kind) => Some(kind),
+                                        _ => None,
+                                    });
+                                    explicit.and_then(|kind| {
+                                        context.agents.iter().find(|agent| agent.id == kind)
+                                    })
+                                } else if let Some(kind) = chosen {
                                     context.agents.iter().find(|agent| agent.id == kind)
                                 } else if pending.scheduled {
                                     match self.settings.default_agent {
@@ -1868,7 +1973,7 @@ impl App {
                         self.worktrees_next_refresh = now;
                     }
                 }
-                Response::WorktreeContinued(result) => {
+                Response::WorktreeContinued(result) | Response::WorktreeReviewed(result) => {
                     self.mutation_busy = false;
                     self.modal = None;
                     self.worktree_action_pending = false;
@@ -2039,6 +2144,8 @@ impl App {
                 KeyCode::Char('X') => self.confirm_worktree_action(5),
                 KeyCode::Char('R') => self.confirm_worktree_action(3),
                 KeyCode::Char('a') => self.confirm_worktree_action(4),
+                KeyCode::Char('v') => self.open_result_review(true),
+                KeyCode::Char('V') => self.open_result_review(false),
                 _ => {}
             }
             return false;
@@ -2240,6 +2347,23 @@ impl App {
             self.worktrees_focus_feedback = Some(WorktreeFocusFeedback::Error(
                 "Workspace switch could not be queued".into(),
             ));
+        }
+    }
+    fn open_result_review(&mut self, accept: bool) {
+        let Some(item) = self.worktrees.get(self.selected_worktree) else {
+            return;
+        };
+        match crate::runtime::current_result_revision(&item.id) {
+            Ok(revision) => {
+                self.modal = Some(Modal::ReviewResult {
+                    id: item.id.clone(),
+                    revision,
+                    accept,
+                    evidence: String::new(),
+                });
+                self.modal_ready = false;
+            }
+            Err(error) => self.worktrees_error = Some(error.to_string()),
         }
     }
     fn confirm_worktree_action(&mut self, action: u8) {
@@ -2473,6 +2597,40 @@ impl App {
         }
         if self.paste_pending {
             self.notice = Some("Wait for screenshot paste or press Esc to cancel".into());
+            return false;
+        }
+        if let Some(Modal::ReviewResult {
+            id,
+            revision,
+            accept,
+            evidence,
+        }) = self.modal.as_mut()
+        {
+            match key.code {
+                Backspace => {
+                    evidence.pop();
+                }
+                Char(c)
+                    if !key.modifiers.contains(KeyModifiers::CONTROL) && evidence.len() < 4000 =>
+                {
+                    evidence.push(c)
+                }
+                Enter if !evidence.trim().is_empty() => {
+                    let request = Request::ReviewResult(
+                        id.clone(),
+                        revision.clone(),
+                        *accept,
+                        evidence.trim().to_owned(),
+                    );
+                    if self.requests.send(request).is_ok() {
+                        self.mutation_busy = true;
+                        self.worktree_action_pending = true;
+                    } else {
+                        self.notice = Some("Review could not be queued".into());
+                    }
+                }
+                _ => {}
+            }
             return false;
         }
         if let Some(Modal::Move {
@@ -3017,6 +3175,7 @@ impl App {
             && beads::is_ready(&pending.bead)
         {
             let id = pending.bead.id;
+            self.last_handoff_failure = Some((id.clone(), handoff_failure_code(&message)));
             self.scheduler_attempted.insert(id.clone());
             if self
                 .requests
@@ -3282,7 +3441,7 @@ pub fn run(t: &mut Tui) -> std::io::Result<()> {
         redraw |= app.poll_planning(now);
         redraw |= app.poll_worktrees(now);
         app.poll_agent_observations(now);
-        if scheduler_dirty {
+        if scheduler_dirty && crate::runtime::is_owner() {
             scheduler_dirty = app.poll_scheduler();
             redraw |= scheduler_dirty;
         }
@@ -3301,6 +3460,140 @@ pub fn run(t: &mut Tui) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+fn handoff_failure_code(message: &str) -> &'static str {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("dirty") || lower.contains("not clean") {
+        "source_checkout_not_clean"
+    } else if lower.contains("workspace discovery") || lower.contains("source_workspace") {
+        "source_workspace_unavailable"
+    } else if lower.contains("supported agent discovery") || lower.contains("integration discovery")
+    {
+        "agent_discovery_failed"
+    } else if lower.contains("dependency readiness") || lower.contains("dependency-ready") {
+        "dependency_not_ready"
+    } else {
+        "handoff_failed_inspect_native_state"
+    }
+}
+
+/// The runtime owns scheduling; clients only render and submit requests.
+pub(crate) struct RuntimeScheduler {
+    app: App,
+}
+impl RuntimeScheduler {
+    pub(crate) fn new() -> Self {
+        let mut app = App::new();
+        app.settings.auto_merge = false;
+        app.settings.auto_merge_children = false;
+        app.settings.auto_close_workspace = false;
+        app.settings.auto_remove_checkout = false;
+        Self { app }
+    }
+    pub(crate) fn diagnostics(&self) -> serde_json::Value {
+        serde_json::json!({
+            "worktreesDiscovered":self.app.worktrees_discovered,
+            "boardReadFailed":self.app.list_error.is_some(),
+            "worktreeReadFailed":self.app.worktrees_error.is_some(),
+            "mutationBusy":self.app.mutation_busy,
+            "lastHandoffFailure":self.app.last_handoff_failure.as_ref().map(|(id,code)|serde_json::json!({"id":id,"code":code,"requiresHumanInspection":true})),
+            "ready":self.app.beads.iter().filter(|bead| beads::is_ready(bead)).map(|bead| serde_json::json!({
+                "id":bead.id,
+                "dependencyReady":bead.dependency_ready,
+                "eligible":self.app.scheduler_eligible(bead),
+                "attempted":self.app.scheduler_attempted.contains(&bead.id),
+                "tracked":self.app.known_handoffs.contains(&bead.id),
+                "pending":self.app.handoff.values().any(|pending| pending.bead.id==bead.id),
+                "agentId":beads::harness(&bead.data),
+                "unassigned":beads::explicitly_unassigned(&bead.data)
+            })).collect::<Vec<_>>()
+        })
+    }
+    pub(crate) fn tick(&mut self) {
+        self.app.receive();
+        let now = Instant::now();
+        self.app.poll_refresh(now);
+        self.app.poll_worktrees(now);
+        self.app.poll_agent_observations(now);
+        self.app.poll_scheduler();
+    }
+}
+
+pub(crate) fn execute_clipboard(request: Request, out: &mpsc::Sender<Response>) {
+    if let Request::ReadScreenshot(seq) = request {
+        let _ = out.send(Response::ScreenshotRead(seq, screenshots::read_clipboard()));
+    }
+}
+
+pub(crate) fn failure_response(request: Request, message: String) -> Response {
+    let e = || std::io::Error::other(message.clone());
+    match request {
+        Request::List => Response::List(Err(e())),
+        Request::Show(id, seq) => Response::Show(id, seq, Err(e())),
+        Request::LoadEdit(id, seq) => Response::EditLoaded(id, seq, Err(e())),
+        Request::Create(_) | Request::CreateChild(_, _) => Response::Created(Err(e())),
+        Request::GenerateEpic(id) => Response::EpicLaunched(id, Err(e())),
+        Request::Update(v) => Response::Updated(v.id, Err(e())),
+        Request::SetReady(id, b) | Request::SetTreeReady(id, b, _, _) => {
+            Response::ReadySet(id, b, Err(e()))
+        }
+        Request::ResetFailedHandoff(seq, id, msg) => {
+            Response::FailedHandoffReset(seq, id, msg, Err(e()))
+        }
+        Request::Move(id, t) => Response::Moved(id, t, Err(e())),
+        Request::Close(id) => Response::Closed(id, Err(e())),
+        Request::Delete(_) => Response::Deleted(Err(e())),
+        Request::DiscoverHarnesses(seq) => Response::HarnessesDiscovered(seq, Err(e())),
+        Request::Discover(seq) => Response::Discovered(seq, Err(e())),
+        Request::Launch(seq, ..) | Request::LaunchReady(seq, ..) => {
+            Response::Launched(seq, Err(e()))
+        }
+        Request::ListWorktrees | Request::ReconcileWorktrees(_) => Response::Worktrees(Err(e())),
+        Request::FocusWorkspace(id) => Response::WorkspaceFocused(id, Err(e())),
+        Request::WorktreeAction(..) => Response::WorktreeChanged(Err(e())),
+        Request::RestartWorktree(_) => Response::WorktreeRestarted(Err(e())),
+        Request::ContinueWorktree(_) => Response::WorktreeContinued(Err(e())),
+        Request::ReviewResult(..) => Response::WorktreeReviewed(Err(e())),
+        Request::ObserveAgents => Response::AgentsObserved(Err(e())),
+        Request::ReadScreenshot(seq) => Response::ScreenshotRead(seq, Err(e())),
+        Request::PlanLaunch(seq, ..) => Response::PlanLaunched(seq, Err(e())),
+        Request::PlanRead(seq, _, marker) => Response::PlanRead(seq, marker, Err(e())),
+        Request::PlanReply(seq, _, _, marker) => Response::PlanReplied(seq, marker, Err(e())),
+        Request::PlanCreate(seq, _) => Response::PlanCreated(seq, Err(message)),
+    }
+}
+
+/// Transport success does not turn a typed backend error into a confirmed effect.
+pub(crate) fn response_failed(response: &Response) -> bool {
+    match response {
+        Response::List(value) => value.is_err(),
+        Response::Show(_, _, value) | Response::EditLoaded(_, _, value) => value.is_err(),
+        Response::Created(value)
+        | Response::WorktreeRestarted(value)
+        | Response::WorktreeContinued(value)
+        | Response::WorktreeReviewed(value) => value.is_err(),
+        Response::EpicLaunched(_, value) | Response::PlanLaunched(_, value) => value.is_err(),
+        Response::EpicFinished(_, value) | Response::HarnessesDiscovered(_, value) => {
+            value.is_err()
+        }
+        Response::Updated(_, value)
+        | Response::Closed(_, value)
+        | Response::WorkspaceFocused(_, value) => value.is_err(),
+        Response::ReadySet(_, _, value) => value.is_err(),
+        Response::FailedHandoffReset(_, _, _, value) => value.is_err(),
+        Response::Moved(_, _, value) => value.is_err(),
+        Response::Deleted(value) => value.is_err(),
+        Response::Discovered(_, value) => value.is_err(),
+        Response::Launched(_, value) => value.is_err(),
+        Response::Worktrees(value) => value.is_err(),
+        Response::WorktreeChanged(value) => value.is_err(),
+        Response::AgentsObserved(value) => value.is_err(),
+        Response::ScreenshotRead(_, value) => value.is_err(),
+        Response::PlanRead(_, _, value) => value.is_err(),
+        Response::PlanReplied(_, _, value) => value.is_err(),
+        Response::PlanCreated(_, value) => value.is_err(),
+    }
 }
 
 #[cfg(test)]
@@ -3948,6 +4241,7 @@ mod tests {
             accepted_handoffs: HashSet::new(),
             known_handoffs: HashSet::new(),
             scheduler_attempted: HashSet::new(),
+            last_handoff_failure: None,
             selected_worktree: 0,
             worktree_offset: 0,
             worktree_detail_offset: 0,
@@ -6116,6 +6410,7 @@ mod tests {
     #[test]
     fn polling_reports_visible_loading_and_queue_errors_but_not_background_reads() {
         let (mut a, requests, _replies) = connected_app();
+        a.worktrees_view = true;
         let now = Instant::now();
         a.next_refresh = now;
         a.worktrees_next_refresh = now;
@@ -6862,7 +7157,7 @@ mod tests {
     #[test]
     fn settings_dialog_surfaces_startup_load_failure_without_dismissing_notice() {
         let mut a = app();
-        let startup_error = "Settings could not be loaded: invalid JSON at /home/test/.config/ontrack/settings.json";
+        let startup_error = "Settings could not be loaded: invalid JSON at /example-home/.config/ontrack/settings.json";
         a.settings_load_error = Some(startup_error.into());
         a.notice = Some(startup_error.into());
         press(&mut a, KeyCode::Char('s'));
@@ -6913,8 +7208,8 @@ mod tests {
         press(&mut a, KeyCode::Down);
         assert!(matches!(a.modal, Some(Modal::Settings { focus: 4, .. })));
         press(&mut a, KeyCode::Enter);
-        assert!(!a.settings.auto_merge_children);
-        assert!(!settings::load_from(&path).unwrap().auto_merge_children);
+        assert!(a.settings.auto_merge_children);
+        assert!(settings::load_from(&path).unwrap().auto_merge_children);
         press(&mut a, KeyCode::Esc);
         assert!(a.modal.is_none());
         assert!(a.settings.auto_merge);
@@ -8513,6 +8808,7 @@ mod tests {
     #[test]
     fn child_automation_discovers_worktrees_after_an_empty_scan() {
         let (mut app, requests, responses) = connected_app();
+        app.settings.auto_merge_children = true; // Explicit legacy preference; runtime still enforces manual policy.
         assert!(!app.settings.auto_merge);
         assert!(app.settings.auto_merge_children);
         assert!(!app.settings.auto_close_workspace);
@@ -8577,7 +8873,7 @@ mod tests {
             rx.try_recv(),
             Ok(Request::ReconcileWorktrees(CleanupPolicy {
                 auto_merge: false,
-                auto_merge_children: true,
+                auto_merge_children: false,
                 auto_close_workspace: false,
                 auto_remove_checkout: false,
             }))
@@ -8727,5 +9023,25 @@ mod tests {
         a.receive_at(Instant::now());
         assert_eq!(a.worktrees.len(), 1);
         assert_eq!(a.worktrees[0].status, worktrees::WorktreeStatus::Integrated);
+    }
+}
+
+#[cfg(test)]
+mod handoff_diagnostics_tests {
+    use super::*;
+    #[test]
+    fn failure_codes_never_include_backend_output() {
+        assert_eq!(
+            handoff_failure_code("workspace discovery: private provider details"),
+            "source_workspace_unavailable"
+        );
+        assert_eq!(
+            handoff_failure_code("source checkout is not clean: private filename"),
+            "source_checkout_not_clean"
+        );
+        assert_eq!(
+            handoff_failure_code("opaque provider response"),
+            "handoff_failed_inspect_native_state"
+        );
     }
 }

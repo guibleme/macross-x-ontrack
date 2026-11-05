@@ -1,5 +1,6 @@
 mod app;
 mod beads;
+mod command_state;
 mod detail;
 mod epic;
 mod event;
@@ -7,7 +8,9 @@ mod herdr;
 mod hotkeys;
 mod interface;
 mod planning;
+mod runtime;
 mod screenshots;
+mod sessions;
 mod settings;
 mod startup;
 mod terminal;
@@ -23,6 +26,7 @@ use std::{error::Error, io};
 fn main() -> Result<(), Box<dyn Error>> {
     match std::env::args_os().skip(1).collect::<Vec<_>>().as_slice() {
         [] => {}
+        [command] if command == "serve" => { runtime::serve()?; return Ok(()); }
         [command] if command == "api" => {
             std::process::exit(if interface::run(false)? { 0 } else { 1 });
         }
@@ -57,12 +61,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         [flag] if flag == "--help" || flag == "-h" => {
             println!(
-                "Usage: ontrack [api [--allow-writes] | update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]\n\nRun without arguments to browse the current Beads workspace.\nAPI reads one versioned JSON request from stdin without a terminal; writes require --allow-writes.\nUpdate checks for a newer compatible release and asks before installing it.\nStatus reports advisory activity for the current managed checkout; clear removes it.\nUninstall removes the running OnTrack executable and user settings after confirmation."
+                "Usage: ontrack [serve | api [--allow-writes] | update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]\n\nRun without arguments to browse the current Beads workspace.\nAPI reads one versioned JSON request from stdin without a terminal; writes require --allow-writes.\nUpdate checks for a newer compatible release and asks before installing it.\nStatus reports advisory activity for the current managed checkout; clear removes it.\nUninstall removes the running OnTrack executable and user settings after confirmation."
             );
             return Ok(());
         }
         _ => return Err(
-            "Usage: ontrack [api [--allow-writes] | update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]"
+            "Usage: ontrack [serve | api [--allow-writes] | update | uninstall [--yes] | status <working|merging|blocked|clear> [detail]]"
                 .into(),
         ),
     }
@@ -70,6 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if !startup::ensure_workspace()? {
         return Ok(());
     }
+    runtime::ensure_started()?;
     let mut terminal = terminal::init()?;
     let result = app::run(&mut terminal);
     let restore_result = terminal::restore(&mut terminal);

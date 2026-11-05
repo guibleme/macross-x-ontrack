@@ -780,6 +780,7 @@ dependencies = [
  "ratatui-cheese",
  "ratcn",
  "semver",
+ "serde",
  "serde_json",
  "sha2",
  "time",

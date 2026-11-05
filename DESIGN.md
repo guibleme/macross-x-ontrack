@@ -1,0 +1,3 @@
+# Product design
+
+Use a warm light work surface with a cool slate navigation rail, or an accessible neutral equivalent. One amber accent for intentional primary actions. Use native system typography, a comfortable readable measure, clear focus indicators, semantic headings, labelled controls and visible loading/error feedback. Prefer rows, split panes and evidence documents over card grids. Use a stable workfront rail, central conversation/planning surface and focused status details. Display multiple state dimensions instead of one misleading completion label. Keep destructive or execution actions explicit. Support narrower windows without losing navigation. Respect reduced motion. Use original text branding, no imported images.

@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 
 use crate::herdr::{self, Executor, RepositoryIdentity, SystemExecutor, envelope};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ManagedWorktree {
     pub id: String,
     pub bead_id: String,
@@ -32,7 +32,7 @@ pub struct ManagedWorktree {
     pub detail: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct AgentDisplay {
     pub id: String,
     pub workspace_id: String,
@@ -94,7 +94,7 @@ fn observe_entry(entry: &Value, executor: &mut impl Executor) -> io::Result<Stri
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum WorktreeStatus {
     Reserved,
     InProgress,
@@ -172,7 +172,7 @@ pub fn report_activity(cwd: &Path, state: &str, detail: Option<&str>) -> io::Res
     registry.save()
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum Action {
     RequestMerge,
     CloseWorkspace,
@@ -180,23 +180,12 @@ pub enum Action {
     ForceRemoveCheckout,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 pub struct CleanupPolicy {
     pub auto_merge: bool,
     pub auto_merge_children: bool,
     pub auto_close_workspace: bool,
     pub auto_remove_checkout: bool,
-}
-
-impl Default for CleanupPolicy {
-    fn default() -> Self {
-        Self {
-            auto_merge: false,
-            auto_merge_children: true,
-            auto_close_workspace: false,
-            auto_remove_checkout: false,
-        }
-    }
 }
 
 fn error(message: impl Into<String>) -> io::Error {
@@ -1836,6 +1825,16 @@ fn request_merge(
     }
     let verified = verify(&registry.repo, entry)?;
     task_commits(&registry.repo, entry, &verified.source_tip)?;
+    if crate::runtime::is_owner() {
+        if !queued_result_matches(entry, &verified.source_tip) {
+            return Err(error(
+                "Integration request no longer matches the accepted result",
+            ));
+        }
+        if dirty(&verified.source)? || unfinished_operation(&verified.source).is_err() {
+            return Err(error("Integration requires a clean, settled result"));
+        }
+    }
     if ancestor(
         &registry.repo.main_root,
         &verified.source_tip,
@@ -1939,6 +1938,7 @@ fn queue_merge(
     registry.entries[index]["merge_queue"] = json!({
         "order": order,
         "provenance": if automatic { "automatic" } else { "manual" },
+        "authorized_source_tip": verified.source_tip,
     });
     registry.entries[index]["detail"] = Value::Null;
     registry.save()
@@ -1994,6 +1994,17 @@ fn merge_ready(bead: &Value) -> bool {
     crate::beads::ready_to_merge_record(bead) || bead["status"] == "closed"
 }
 
+fn queued_result_matches(entry: &Value, source_tip: &str) -> bool {
+    entry["review"]["state"] == "accepted"
+        && entry["review"]["resultRevision"] == source_tip
+        && (!entry["merge_queue"].is_object()
+            || entry["merge_queue"]["authorized_source_tip"] == source_tip)
+}
+
+fn merge_provenance_allowed(record: &Value, owner: bool) -> bool {
+    !owner || record["provenance"] == "manual"
+}
+
 fn dispatch_next_merge(registry: &mut Registry, executor: &mut impl Executor) -> io::Result<()> {
     if !registry
         .entries
@@ -2026,6 +2037,9 @@ fn dispatch_next_merge(registry: &mut Registry, executor: &mut impl Executor) ->
         .iter()
         .enumerate()
         .filter_map(|(index, entry)| {
+            if !merge_provenance_allowed(&entry["merge_queue"], crate::runtime::is_owner()) {
+                return None;
+            }
             entry["merge_queue"]["order"]
                 .as_u64()
                 .map(|order| (index, order))
@@ -2083,6 +2097,9 @@ fn finalize(registry: &mut Registry, index: usize, executor: &mut impl Executor)
         return Ok(());
     }
     let request = &entry["merge_request"];
+    if !merge_provenance_allowed(request, crate::runtime::is_owner()) {
+        return Err(error("Integration requires an explicit human request"));
+    }
     if !request.is_object() {
         return Ok(());
     }
@@ -2205,6 +2222,9 @@ fn children_ready(
 /// Close a Bead only after fresh proof that its tracked source is integrated
 /// into the recorded target. Untracked issues and untouched checkouts fail closed.
 pub fn close_integrated_bead(id: &str) -> io::Result<()> {
+    if crate::runtime::is_owner() {
+        require_review_for_bead(id)?;
+    }
     crate::beads::validate_id(id)?;
     close_integrated_bead_with(&std::env::current_dir()?, id, &mut SystemExecutor)
 }
@@ -2391,8 +2411,15 @@ fn cleanup(
     )? {
         return Err(error("Current source is not integrated; cleanup refused"));
     }
+    // Closing a delivery is a separate explicit operation in the shared runtime.
     // Explicit cleanup, too, must not destroy the agent needed to retry closure.
     let bead = executor.show_bead(field(entry, "bead_id")?)?;
+    if crate::runtime::is_owner() && bead["status"] != "closed" {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Close the delivery explicitly before cleanup; cleanup does not close its Bead",
+        ));
+    }
     if bead["id"] != entry["bead_id"]
         || bead["status"] != "closed"
         || entry["merge_request"].is_object() && entry["merge_request"]["provenance"] != "manual"
@@ -2580,7 +2607,26 @@ fn confirm_cleanup(
     registry.save()
 }
 
+/// Pure preflight for a client cleanup command. No Bead or worktree is changed.
+pub(crate) fn require_cleanup_bead_closed(id: &str) -> io::Result<()> {
+    let registry = Registry::open(&std::env::current_dir()?)?;
+    let index = registry.index(id)?;
+    let bead_id = field(&registry.entries[index], "bead_id")?.to_owned();
+    drop(registry);
+    let bead = crate::beads::show_bead(&bead_id)?;
+    if bead["id"] != bead_id || bead["status"] != "closed" {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Close the delivery explicitly before cleanup; cleanup does not close its Bead",
+        ));
+    }
+    Ok(())
+}
+
 pub fn act(id: &str, action: Action) -> io::Result<ManagedWorktree> {
+    if crate::runtime::is_owner() {
+        require_review(id)?;
+    }
     act_with(&std::env::current_dir()?, id, action, &mut SystemExecutor)
 }
 
@@ -2602,6 +2648,18 @@ fn act_with(
                 if registry.entries[index]["merge_queue"].is_object() {
                     registry.entries[index]["merge_queue"]["blocked"] = Value::Null;
                     registry.entries[index]["merge_queue"]["provenance"] = json!("manual");
+                    let branch = field(&registry.entries[index], "branch")?;
+                    let revision = git(
+                        &registry.repo.main_root,
+                        &[
+                            "rev-parse",
+                            "--verify",
+                            "--end-of-options",
+                            &format!("{branch}^{{commit}}"),
+                        ],
+                    )?;
+                    registry.entries[index]["merge_queue"]["authorized_source_tip"] =
+                        json!(revision);
                     registry.entries[index]["detail"] = Value::Null;
                     registry.save()?;
                 } else {
@@ -2630,6 +2688,16 @@ fn reconcile_with(
     policy: CleanupPolicy,
     executor: &mut impl Executor,
 ) -> io::Result<Vec<ManagedWorktree>> {
+    let policy = if crate::runtime::is_owner() {
+        CleanupPolicy {
+            auto_merge: false,
+            auto_merge_children: false,
+            auto_close_workspace: false,
+            auto_remove_checkout: false,
+        }
+    } else {
+        policy
+    };
     let mut registry = Registry::open(cwd)?;
     for index in 0..registry.entries.len() {
         let result = (|| {
@@ -2654,11 +2722,29 @@ fn reconcile_with(
             }
             let status = inspect(&registry.repo, &registry.entries[index]).status;
             if matches!(status, WorktreeStatus::MergeRequested) {
+                if crate::runtime::is_owner() {
+                    let entry = &registry.entries[index];
+                    let branch = field(entry, "branch")?;
+                    let revision = git(
+                        &registry.repo.main_root,
+                        &[
+                            "rev-parse",
+                            "--verify",
+                            "--end-of-options",
+                            &format!("{branch}^{{commit}}"),
+                        ],
+                    )?;
+                    if entry["review"]["state"] != "accepted"
+                        || entry["review"]["resultRevision"] != revision
+                    {
+                        return Err(error("Integration requires current human acceptance"));
+                    }
+                }
                 finalize(&mut registry, index, executor)?;
             }
             let status = inspect(&registry.repo, &registry.entries[index]).status;
             let mut closed_now = false;
-            if status == WorktreeStatus::Integrated {
+            if status == WorktreeStatus::Integrated && !crate::runtime::is_owner() {
                 let entry = &registry.entries[index];
                 let bead = executor.show_bead(field(entry, "bead_id")?)?;
                 if bead["id"] != entry["bead_id"] {
@@ -2763,6 +2849,320 @@ pub fn status_label(status: WorktreeStatus) -> &'static str {
         NeedsAttention => "NEEDS ATTENTION",
     }
 }
+
+/// Stable wire code, independent of presentation labels.
+pub fn status_code(status: WorktreeStatus) -> &'static str {
+    use WorktreeStatus::*;
+    match status {
+        Reserved => "reserved",
+        InProgress => "in_progress",
+        Blocked => "blocked",
+        Unmerged => "unmerged",
+        MergeQueued => "merge_queued",
+        MergeRequested => "merge_requested",
+        MergeInProgress => "merge_in_progress",
+        NeedsResolution => "needs_resolution",
+        Integrated => "integrated",
+        WorkspaceClosed => "workspace_closed",
+        CheckoutRemoved => "checkout_removed",
+        DirtyCheckout => "dirty_checkout",
+        NeedsAttention => "needs_attention",
+    }
+}
+pub(crate) fn result_revision(id: &str) -> io::Result<String> {
+    let registry = Registry::open(&std::env::current_dir()?)?;
+    let index = registry.index(id)?;
+    let entry = &registry.entries[index];
+    let branch = field(entry, "branch")?;
+    git(
+        &registry.repo.main_root,
+        &[
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            &format!("{branch}^{{commit}}"),
+        ],
+    )
+}
+fn review_current_result(repo: &RepositoryIdentity, entry: &Value) -> io::Result<bool> {
+    let verified = verify_identity(repo, entry)?;
+    if dirty(&verified.source)? || unfinished_operation(&verified.source).is_err() {
+        return Ok(false);
+    }
+    let observed = observe_entry(entry, &mut SystemExecutor)?;
+    match observed.as_str() {
+        "working" | "blocked" | "error" => Ok(false),
+        "idle" | "done" => Ok(true),
+        _ => Err(error("Current native agent state is unavailable")),
+    }
+}
+pub(crate) fn record_review(
+    id: &str,
+    revision: &str,
+    accept: bool,
+    evidence: Value,
+) -> io::Result<Value> {
+    let prepared=(|| -> io::Result<(Registry,Value)> {
+    if revision.len() != 40
+        || !revision.bytes().all(|b| b.is_ascii_hexdigit())
+        || evidence.as_array().is_none_or(|rows| {
+            rows.is_empty()
+                || rows.len() > 64
+                || rows.iter().any(|r| {
+                    r.as_str()
+                        .is_none_or(|text| text.trim().is_empty() || text.len() > 4096)
+                })
+        })
+    {
+        return Err(error(
+            "Review requires an exact result commit and bounded criteria evidence",
+        ));
+    }
+    let registry = Registry::open(&std::env::current_dir()?)?;
+    let index = registry.index(id)?;
+    let entry = registry.entries[index].clone();
+    let repo = registry.repo.clone();
+    drop(registry);
+    let verified = verify_identity(&repo, &entry)?;
+    if verified.source_tip != revision {
+        return Err(error("Result revision changed"));
+    }
+    if accept {
+        if entry["phase"] != "active"
+            || entry["restart_pending"] == true
+            || entry["continue_prompt_pending"] == true
+        {
+            return Err(error("Result has an unfinished execution operation"));
+        }
+        clean(&verified.source)?;
+        task_commits(&repo, &entry, &verified.source_tip)?;
+        // Native completion and checkout identity are independent evidence.
+        settled(&mut SystemExecutor, &entry, false)?;
+        if !review_current_result(&repo, &entry)? {
+            return Err(error("Result is dirty or its agent is still active"));
+        }
+    }
+    let mut registry = Registry::open(&std::env::current_dir()?)?;
+    let index = registry.index(id)?;
+    for key in [
+        "branch",
+        "path",
+        "agent_session",
+        "workspace_id",
+        "pane_id",
+        "phase",
+    ] {
+        if registry.entries[index][key] != entry[key] {
+            return Err(error("Managed result identity changed during review"));
+        }
+    }
+    let fresh = verify_identity(&registry.repo, &registry.entries[index])?;
+    if fresh.source_tip != revision {
+        return Err(error("Result revision changed during review"));
+    }
+    if accept {
+        clean(&fresh.source)?;
+    }
+    let review = json!({"state":if accept{"accepted"}else{"changes_requested"},"validity":"current","resultRevision":revision,"evidence":evidence,"actor":"local-user","at":SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()});
+    let previous = registry.entries[index]["review"].clone();
+    if previous.is_object() {
+        if !registry.entries[index]["review_history"].is_array() {
+            registry.entries[index]["review_history"] = json!([]);
+        }
+        registry.entries[index]["review_history"]
+            .as_array_mut()
+            .unwrap()
+            .push(previous);
+    }
+    registry.entries[index]["review"] = review.clone();
+    Ok((registry,review))
+    })().map_err(|error|io::Error::new(io::ErrorKind::InvalidInput,error.to_string()))?;
+    let (registry, review) = prepared;
+    registry.save()?;
+    Ok(review)
+}
+
+pub(crate) fn review(id: &str) -> io::Result<Value> {
+    let registry = Registry::open(&std::env::current_dir()?)?;
+    let index = registry.index(id)?;
+    let entry = registry.entries[index].clone();
+    let repo = registry.repo.clone();
+    let entries = registry.entries.clone();
+    let mut review = entry["review"].clone();
+    drop(registry);
+    if !review.is_object() {
+        return Ok(json!({"state":"pending","validity":"unknown"}));
+    }
+    let current = git(
+        &repo.main_root,
+        &[
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            &format!("{}^{{commit}}", field(&entry, "branch")?),
+        ],
+    )?;
+    let validity = if review["resultRevision"] != current {
+        Ok(false)
+    } else if archived_review_is_current(&repo, &entry, &entries, &current) {
+        Ok(true)
+    } else {
+        review_current_result(&repo, &entry)
+    };
+    match validity {
+        Ok(false) => {
+            review["validity"] = json!("current");
+            if review["state"] == "accepted" {
+                let previous = review.clone();
+                review["state"] = json!("invalidated");
+                review["invalidatedAt"] = json!(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                );
+                review["reason"] =
+                    json!("Result revision, working tree, or verified agent activity changed");
+                let mut registry = Registry::open(&std::env::current_dir()?)?;
+                let index = registry.index(id)?;
+                if registry.entries[index]["review"]["resultRevision"] == previous["resultRevision"]
+                    && registry.entries[index]["review"]["state"] == "accepted"
+                {
+                    if !registry.entries[index]["review_history"].is_array() {
+                        registry.entries[index]["review_history"] = json!([]);
+                    }
+                    registry.entries[index]["review_history"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(previous);
+                    registry.entries[index]["review"] = review.clone();
+                    registry.save()?;
+                }
+            }
+        }
+        Ok(true) => review["validity"] = json!("current"),
+        Err(_) => {
+            review["validity"] = json!("unknown");
+            review["reason"] = json!(
+                "Current checkout or native agent observation is unavailable; historical decision preserved"
+            );
+        }
+    }
+    Ok(review)
+}
+pub(crate) fn require_review(id: &str) -> io::Result<()> {
+    let review = review(id)?;
+    if review["state"] != "accepted" || review["validity"] != "current" {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Current result requires explicit human acceptance and fresh verification",
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn require_review_for_bead(id: &str) -> io::Result<()> {
+    let registry = Registry::open(&std::env::current_dir()?)?;
+    let ids: Vec<_> = registry
+        .entries
+        .iter()
+        .filter(|e| e["bead_id"] == id && e["restarted"] != true)
+        .filter_map(|e| e["id"].as_str().map(str::to_owned))
+        .collect();
+    drop(registry);
+    if ids.len() != 1 {
+        return Err(error("Acceptance requires exactly one managed result"));
+    }
+    require_review(&ids[0])
+}
+
+pub(crate) fn execution_code(status: WorktreeStatus) -> &'static str {
+    use WorktreeStatus::*;
+    match status {
+        Reserved => "queued",
+        InProgress | DirtyCheckout => "running",
+        Blocked | NeedsResolution => "blocked",
+        Unmerged | MergeQueued | MergeRequested | MergeInProgress | Integrated
+        | WorkspaceClosed | CheckoutRemoved => "succeeded",
+        NeedsAttention => "unknown",
+    }
+}
+pub(crate) fn integration_code(status: WorktreeStatus) -> &'static str {
+    use WorktreeStatus::*;
+    match status {
+        Integrated | WorkspaceClosed => "integrated",
+        MergeQueued | MergeRequested => "requested",
+        MergeInProgress => "integrating",
+        NeedsResolution => "conflict",
+        CheckoutRemoved | NeedsAttention => "unknown",
+        _ => "not_integrated",
+    }
+}
+
+/// A removed checkout can retain current acceptance only through a confirmed
+/// non-force cleanup and fresh ancestry of the exact accepted immutable result.
+fn archived_review_is_current(
+    repo: &RepositoryIdentity,
+    entry: &Value,
+    entries: &[Value],
+    current: &str,
+) -> bool {
+    if entry["workspace_closed"] != true
+        || entry["cleanup_pending"].is_string()
+        || entry["force_removed"] == true
+        || entry["checkout_removed_externally"] == true
+        || entry["restarted"] == true
+        || entry["cleanup_source_tip"] != current
+        || entry["review"]["resultRevision"] != current
+    {
+        return false;
+    }
+    if entries.iter().any(|other| {
+        other["id"] != entry["id"]
+            && other["bead_id"] == entry["bead_id"]
+            && other["restarted"] != true
+            && other["checkout_removed"] != true
+    }) {
+        return false;
+    }
+    matches!(
+        inspect(repo, entry).status,
+        WorktreeStatus::CheckoutRemoved | WorktreeStatus::WorkspaceClosed
+    )
+}
+pub(crate) fn integration_state(id: &str, status: WorktreeStatus) -> &'static str {
+    if status != WorktreeStatus::CheckoutRemoved {
+        return integration_code(status);
+    }
+    let check = (|| -> io::Result<bool> {
+        let registry = Registry::open(&std::env::current_dir()?)?;
+        let index = registry.index(id)?;
+        let entry = &registry.entries[index];
+        let current = tip(
+            &registry.repo.main_root,
+            &format!("refs/heads/{}", field(entry, "branch")?),
+        )?;
+        Ok(entry["review"]["state"] == "accepted"
+            && archived_review_is_current(&registry.repo, entry, &registry.entries, &current))
+    })();
+    if check.is_ok_and(|current| current) {
+        "integrated"
+    } else {
+        "unknown"
+    }
+}
+pub(crate) fn is_current_run(id: &str) -> io::Result<bool> {
+    let registry = Registry::open(&std::env::current_dir()?)?;
+    let index = registry.index(id)?;
+    let entry = &registry.entries[index];
+    let candidates: Vec<_> = registry
+        .entries
+        .iter()
+        .filter(|other| other["bead_id"] == entry["bead_id"] && other["restarted"] != true)
+        .collect();
+    Ok(candidates.len() == 1 && candidates[0]["id"] == entry["id"])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5350,7 +5750,7 @@ mod tests {
         executor.json(fixture.inventory(false, false));
         let policy = CleanupPolicy {
             auto_merge: true,
-            auto_merge_children: true,
+            auto_merge_children: false,
             auto_close_workspace: true,
             auto_remove_checkout: true,
         };
@@ -5512,7 +5912,7 @@ mod tests {
                 &fixture.main,
                 CleanupPolicy {
                     auto_merge: true,
-                    auto_merge_children: true,
+                    auto_merge_children: false,
                     auto_close_workspace: true,
                     auto_remove_checkout: true,
                 },
@@ -5577,7 +5977,7 @@ mod tests {
         fixture.simulate_legacy_late_session();
         let policy = CleanupPolicy {
             auto_merge: true,
-            auto_merge_children: true,
+            auto_merge_children: false,
             auto_close_workspace: true,
             auto_remove_checkout: true,
         };
@@ -5645,7 +6045,7 @@ mod tests {
             &fixture.main,
             CleanupPolicy {
                 auto_merge: true,
-                auto_merge_children: true,
+                auto_merge_children: false,
                 auto_close_workspace: true,
                 auto_remove_checkout: true,
             },
@@ -6200,7 +6600,7 @@ mod tests {
             &fixture.main,
             CleanupPolicy {
                 auto_merge: true,
-                auto_merge_children: true,
+                auto_merge_children: false,
                 auto_close_workspace: true,
                 auto_remove_checkout: true,
             },
@@ -6248,7 +6648,7 @@ mod tests {
             &fixture.main,
             CleanupPolicy {
                 auto_merge: true,
-                auto_merge_children: true,
+                auto_merge_children: false,
                 auto_close_workspace: true,
                 auto_remove_checkout: true,
             },
@@ -6327,7 +6727,7 @@ mod tests {
                 &fixture.main,
                 CleanupPolicy {
                     auto_merge: true,
-                    auto_merge_children: true,
+                    auto_merge_children: false,
                     auto_close_workspace: true,
                     auto_remove_checkout: true,
                 },
@@ -6483,7 +6883,7 @@ mod tests {
                     &fixture.main,
                     CleanupPolicy {
                         auto_merge: true,
-                        auto_merge_children: true,
+                        auto_merge_children: false,
                         auto_close_workspace: true,
                         auto_remove_checkout: true,
                     },
@@ -6503,5 +6903,39 @@ mod tests {
                 assert!(fixture.source.exists());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod owner_merge_tests {
+    use super::*;
+    #[test]
+    fn queued_integration_pins_both_human_acceptance_and_authorized_commit() {
+        let mut entry = json!({"review":{"state":"accepted","resultRevision":"commit-a"},"merge_queue":{"authorized_source_tip":"commit-a"}});
+        assert!(queued_result_matches(&entry, "commit-a"));
+        assert!(!queued_result_matches(&entry, "commit-b"));
+        entry["review"]["resultRevision"] = json!("commit-b");
+        assert!(!queued_result_matches(&entry, "commit-b"));
+        entry["merge_queue"]["authorized_source_tip"] = json!("commit-b");
+        assert!(queued_result_matches(&entry, "commit-b"));
+        entry["review"]["state"] = json!("invalidated");
+        assert!(!queued_result_matches(&entry, "commit-b"));
+    }
+
+    #[test]
+    fn owner_requires_manual_provenance_for_inherited_merge_records() {
+        for record in [
+            Value::Null,
+            json!({}),
+            json!({"provenance":"automatic"}),
+            json!({"provenance":"legacy"}),
+        ] {
+            assert!(!merge_provenance_allowed(&record, true));
+            assert!(merge_provenance_allowed(&record, false));
+        }
+        assert!(merge_provenance_allowed(
+            &json!({"provenance":"manual"}),
+            true
+        ));
     }
 }

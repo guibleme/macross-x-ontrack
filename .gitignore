@@ -9,3 +9,13 @@
 __pycache__/
 .beads/issues.jsonl
 .beads/screenshots/
+
+# Local desktop and runtime data
+/state/
+/ui/node_modules/
+/ui/dist/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.env
+.env.*

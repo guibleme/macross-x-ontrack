@@ -1,80 +1,104 @@
-# Macross × OnTrack: local UI adapter v1
+# Local JSON interface v1
 
-This fork preserves the terminal application and adds a local, versioned JSON
-command interface. A GUI host starts the binary with an argv array, writes one
-request to stdin, closes stdin and reads one response from stdout. No terminal,
-clipboard, shell interpolation or network listener is required for this mode.
+The terminal interface and Macross share one repository runtime. The `ontrack api`
+command is a client. It reads one bounded JSON request from stdin and writes one response to stdout.
+Commands use argument arrays. No shell interpolation, clipboard or terminal is needed for API calls.
 
-```sh
-printf '%s' '{"version":1,"id":"hello","method":"capabilities","params":{}}' | ontrack api
+## Runtime ownership
+
+Run `ontrack serve` from the registered Git repository to start a foreground runtime.
+The TUI and Macross can also start or connect to the owner. One lifetime lock identifies the owner per canonical Git common directory.
+Clients verify repository identity, protocol and runtime epoch through a private Unix socket.
+Closing a client does not stop that owner. Stop a foreground owner with Ctrl+C or use an operating-system signal.
+No `runtime.stop` API exists. Stopping the owner does not imply that Herdr agents stopped.
+
+Except for static `capabilities`, API calls require the owner. They return
+`runtime_unavailable` when it cannot be reached. There is no direct mutation fallback.
+Reconnecting clients read current snapshots. They must not replay uncertain writes.
+
+The host selects the repository through the child process working directory.
+Requests cannot select executable paths, environment variables or arbitrary shell commands.
+The process has the local user's permissions. This is not a sandbox or a multiuser service.
+Do not expose the command interface directly to a network.
+
+## Envelope and operation identity
+
+```json
+{"version":1,"id":"read-capabilities","method":"capabilities","params":{}}
 ```
 
-Use `ontrack api --allow-writes` only when the host intentionally enables writes.
-The host chooses the project through the process working directory. A request
-cannot change repositories, environment variables, executable paths or shell commands.
-The process inherits its normal user permissions and credentials. This is not a
-sandbox or a multiuser authentication service. Do not expose it directly to a network.
+A request uses protocol version 1, a nonempty ID of at most 128 bytes, a method and object parameters.
+The stdin request limit is 65,536 UTF-8 bytes. Unsupported methods, fields and parameter types are rejected.
+Use `ontrack api --allow-writes` only for deliberately authorized mutations.
 
-## Request and response
+Success returns `{"version":1,"id":"read-capabilities","result":{...}}` and exit code 0.
+Failure returns `{"version":1,"id":"read-capabilities","error":{"code":"...","message":"..."}}` and exit code 1.
+Malformed input can return a null ID. stderr contains diagnostics. stdout contains only the response.
 
-A request has `version: 1`, a nonempty string `id`, a `method`, and optional
-object `params`. Unknown fields, methods and parameter types are rejected.
-The request limit is 65,536 UTF-8 bytes. The request ID is a correlation value,
-not an idempotency key or a durable job ID.
-
-Success: `{"version":1,"id":"hello","result":{...}}`, exit code 0.
-Failure: `{"version":1,"id":"hello","error":{"code":"...","message":"..."}}`,
-exit code 1. Invalid requests may have a null response ID. stderr is diagnostic
-output; stdout contains only the JSON response. An interrupted mutation can have
-an unknown outcome. Inspect the task or managed handoff before retrying. In
-particular, do not blindly retry task creation or comment submission.
+For mutations, the request ID identifies a durable operation. The runtime records its intent before external effects.
+Repeating the same ID and payload returns the recorded result. Reusing that ID with different content fails.
+A lost response or uncertain backend error leaves the operation unknown. Neither a timeout nor an error proves no effect occurred.
 
 ## Methods
 
-| Method | Params | Result | Write |
+| Method | Parameters | Result | Writes |
 | --- | --- | --- | --- |
-| `capabilities` | none | Methods, transport and runtime limits | no |
-| `board.list` | none | Entries with `record` and shared TUI `column` | no |
-| `task.show` | `id` | Complete Beads record, including comments | no |
-| `task.create` | `title`, `description`, optional `type`, `priority`, `harness` | Created task ID | yes |
-| `task.comment` | `id`, `text` | Beads comment result | yes |
-| `task.ready` | `id`, boolean `ready` | Requested Ready state after backend confirmation | yes |
-| `worktrees.list` | none | Existing managed handoffs and status labels | no |
-| `worktree.continue` | Managed handoff `id` | Accepted continuation message | yes |
+| `capabilities` | none | Methods, protocol, transport and runtime limits | no |
+| `runtime.status` | none | Owner status and repository identity | no |
+| `agents.list` | none | Detected agents, availability, capabilities and verification status | no |
+| `board.list` | none | Beads records, board columns and record revisions | no |
+| `task.show` | `id` | Beads record with `ontrackRevision` | no |
+| `task.create` | `title`, `description`; optional `type`, `priority`, `harness`, `externalRef` | Created Bead ID | yes |
+| `task.comment` | `id`, `text`; optional `expectedRevision` | Beads comment result | yes |
+| `task.ready` | `id`, boolean `ready`; optional `expectedRevision` | Confirmed requested Ready state | yes |
+| `worktrees.list` | none | Managed attempts, active identity, native state, result revision and review | no |
+| `worktree.continue` | Managed attempt `id`; optional `expectedRevision` | Accepted continuation message | yes |
+| `worktree.integrate` | Managed handoff `id`, exact `resultRevision` | Explicit integration request after current acceptance | yes |
+| `session.start` | `agentId`, `frontId`, `input`; optional `context`, `workspaceId` | Provider session ID and request status | yes |
+| `session.send` | `sessionId`, `input`; optional `context` | Submission status | yes |
+| `session.observe` | `sessionId`; optional `cursor` | Pending status or bounded answer text | no |
+| `operation.get` | Operation `id` | Stored request, state and confirmed result when available | no |
+| `operation.reconcile` | Operation `id`, `actor:"human"`, nonempty `evidence`, confirmed `result` | Reconciled operation | yes |
+| `review.accept` | Managed attempt `id`, `resultRevision`, nonempty `evidence` | Human review receipt | yes |
+| `review.changes_requested` | Managed attempt `id`, `resultRevision`, `reason` or nonempty `evidence` | Human review receipt | yes |
+| `delivery.close` | Bead `id` | Explicit closure result after acceptance and integration checks | yes |
 
-Creation defaults to type `task`, priority 2 and no explicit harness. Titles are
-limited to 256 bytes, descriptions to 32,768 bytes and comments to 16,384 bytes.
-Existing Beads validation owns task IDs and supported types/harnesses. Text is
-passed as separate subprocess arguments and is never evaluated as shell input.
-The adapter's board read uses the read-only Beads route, not the browser route
-that can repair closed-parent relationships.
+Creation defaults to task type, priority 2 and no explicit harness. A missing harness does not authorize a vendor fallback.
+Select the agent explicitly for Macross admission and conversation requests.
+Titles allow 256 bytes, descriptions 32,768 bytes and comments 16,384 bytes.
+`externalRef` identifies the operation target. It does not establish a native Beads external-reference index.
+`expectedRevision` compares the current target revision before a supported mutation.
 
-Ready may cause the existing running TUI scheduler to dispatch an eligible task.
-A successful Continue response means submission was accepted, not that work
-finished. Existing native session, terminal, checkout and uncertain-delivery
-checks still apply. `worktrees.list` status is separate from human acceptance.
-Merge, cleanup, deletion and closure are deliberately not exposed by this adapter.
+`task.ready` can trigger the shared scheduler. Successful submission or continuation does not mean execution completed.
+Native session, checkout and uncertain-delivery checks remain in force.
 
-## Ownership and current limit
+## Review and state
 
-Beads remains the task store. The OnTrack registry remains the managed handoff
-store. The adapter and TUI use the same domain functions and status projection.
-There is no mirrored GUI database and no second scheduler.
+Planning, execution, review, integration and command outcome are different dimensions.
+`worktrees.list` preserves native details and supplies stable state codes.
+An `active:false` attempt is historical. A current result must have one unambiguous active attempt.
 
-**The automatic scheduler still runs in the TUI event loop.** Capabilities reports
-`automatic_scheduler: "tui"`. This adapter is the first integration boundary, not
-a headless daemon or a completed Macross integration. Keep the TUI running for
-its automatic scheduling. A later change must move scheduling into one shared
-runtime before a GUI can replace the TUI as the only frontend.
+Review returns its historical decision plus `validity:"current"` or `validity:"unknown"` when applicable.
+A changed or dirty result invalidates acceptance. Missing observations do not establish current acceptance.
+Delivery, dependency release and closure require current human acceptance and verified integration of the accepted result.
+Acceptance alone does not initiate merge or cleanup.
 
-The fork is based on [ThomasJRyan/OnTrack](https://github.com/ThomasJRyan/OnTrack).
-The existing update command still targets upstream releases. Do not use it to
-maintain a custom fork binary until a fork release channel is defined.
+## Recovery
 
-## Checks
+Use `operation.get` with the original mutation ID after a lost response.
+An absent operation returns `operation_not_found`. This differs from an unavailable runtime or an unknown effect.
 
-Integration tests invoke the real binary without a TTY for capabilities,
-structured failures, input bounds and write admission. A disposable-project smoke
-must also create a task, post a comment and read both through the API. Existing
-TUI, worktree and Continue tests remain part of the full suite. A live terminal
-smoke verifies the same built executable still renders the TUI.
+The current `operation.reconcile` implementation resolves only uncertain `task.create` operations through explicit human evidence and Beads readback.
+Provide `result:{"id":"the-created-bead"}`. The runtime verifies the recorded title and description against that Bead.
+It does not accept arbitrary no-effect assertions or generic resolutions for every mutation.
+Other uncertain operations remain blocked until their outcome can be established through a supported recovery path.
+Never recreate a task merely because its response was lost.
+
+Macross also records its own command intents and bindings. It can recover a confirmed provider session link or a confirmed wave admission.
+It retains unknown outcomes when the engine cannot confirm them.
+
+## Updates and limits
+
+The runtime is local and uses Unix sockets. Installed agent detection is not a live compatibility certification.
+Conversation restrictions in prompts are instructions. They are not a universal operating-system sandbox for every agent.
+The inherited updater still targets upstream releases and can replace this fork's binary. Build this fork from its checkout instead.

@@ -27,3 +27,30 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Build
         run: cargo build
+
+  desktop:
+    name: Desktop and connector checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npm test
+        working-directory: ui
+      - run: npm run build
+        working-directory: ui
+      - name: Audit source and desktop assets
+        run: |
+          python3 -m unittest discover -s tests -p 'test_neutral_audit.py'
+          python3 scripts/audit-neutral.py
+          python3 scripts/audit-neutral.py --path ui/dist
+      - name: Scan selected source and built assets for secrets
+        run: |
+          python3 scripts/install-audit-scanner.py state/tools/gitleaks
+          python3 scripts/audit-secrets.py --gitleaks state/tools/gitleaks
+          python3 scripts/audit-secrets.py --gitleaks state/tools/gitleaks --path ui/dist

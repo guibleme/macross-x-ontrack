@@ -47,7 +47,7 @@ pub const HARNESSES: &[&str] = &[
     "muse",
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CreateBead {
     pub title: String,
     pub description: String,
@@ -56,14 +56,14 @@ pub struct CreateBead {
     pub harness: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UpdateBead {
     pub id: String,
     pub fields: CreateBead,
     pub previous_harness: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Bead {
     pub id: String,
     pub title: String,
@@ -86,6 +86,21 @@ const LIST_ARGS: &[&str] = &[
 
 pub fn list_beads() -> io::Result<Vec<Bead>> {
     parse_list(&run_bd(LIST_ARGS)?)
+}
+
+/// Read graph eligibility without the browser's parent repair mutations.
+pub fn list_scheduler_beads() -> io::Result<Vec<Bead>> {
+    list_scheduler_beads_with(run_bd)
+}
+
+fn list_scheduler_beads_with(
+    mut run: impl FnMut(&[&str]) -> io::Result<Vec<u8>>,
+) -> io::Result<Vec<Bead>> {
+    let mut beads = parse_list(&run(LIST_ARGS)?)?;
+    let ready = parse_records(&run(READY_ARGS)?)?;
+    let blocked = parse_records(&run(BLOCKED_ARGS)?)?;
+    apply_readiness(&mut beads, &ready, &blocked)?;
+    Ok(beads)
 }
 
 const READY_ARGS: &[&str] = &[
@@ -1073,6 +1088,37 @@ mod tests {
         )
         .unwrap();
         assert!(!beads[1].dependency_ready);
+    }
+
+    #[test]
+    fn scheduler_snapshot_reads_graph_without_repairing_closed_parents() {
+        let mut calls = Vec::new();
+        let result = list_scheduler_beads_with(|args| {
+            assert!(args.contains(&"--readonly"));
+            calls.push(args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>());
+            let records = if args == LIST_ARGS {
+                json!([
+                    {"id":"parent","title":"Parent","status":"closed"},
+                    {"id":"free","title":"Free","status":"open","parent":"parent","labels":["ontrack:ready"]},
+                    {"id":"blocked","title":"Blocked","status":"open"}
+                ])
+            } else if args == READY_ARGS {
+                json!([{"id":"free"}])
+            } else if args == BLOCKED_ARGS {
+                json!([{"id":"blocked","blocked_by":["free"]}])
+            } else {
+                panic!("unexpected mutation or read: {args:?}");
+            };
+            Ok(serde_json::to_vec(&records).unwrap())
+        }).unwrap();
+        assert_eq!(
+            calls,
+            [LIST_ARGS, READY_ARGS, BLOCKED_ARGS]
+                .map(|args| args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>())
+        );
+        assert!(result[1].dependency_ready);
+        assert!(!result[2].dependency_ready);
+        assert_eq!(result[2].blocked_by, vec!["free"]);
     }
 
     #[test]

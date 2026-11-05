@@ -6,7 +6,9 @@
 - Run `cargo run` in a terminal with alternate-screen support, not a non-interactive runner.
 - When working with Herdr integrations, reference https://herdr.dev/docs.
 - When working with Beads, reference https://beads.gascity.com.
-- Preserve the TUI. Local GUI integrations use the JSON adapter in `docs/ui-adapter.md` and existing domain functions, without a mirrored task store. The automatic scheduler currently runs in the TUI; do not claim the adapter is an independent daemon.
+- Preserve the TUI. Local GUI integrations use the JSON adapter in `docs/ui-adapter.md` and existing domain functions, without a mirrored task store. The scheduler runs in one repository owner (`ontrack serve`). TUI and JSON clients share that owner. Never add a direct mutation fallback or a second scheduler.
+
+- The fresh desktop application lives under `ui/`. Keep runtime state under `state/`. Do not import earlier application code or assets without verified provenance. Agent IDs come from runtime discovery. Connector activation never authorizes execution.
 
 ## Checks and invariants
 
@@ -15,6 +17,9 @@ cargo fmt --check
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo build
+npm --prefix ui test
+npm --prefix ui run build
+python3 scripts/audit-neutral.py
 ```
 
 - Tests are inline; focused checks: `cargo test event::tests` or `cargo test ui::tests`.

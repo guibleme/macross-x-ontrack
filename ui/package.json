@@ -1,0 +1,31 @@
+{
+  "name": "macross-ontrack-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.mjs",
+  "engines": {
+    "node": ">=24.5"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4281 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "start": "node server/index.mjs",
+    "desktop": "electron .",
+    "electron:smoke": "MACROSS_ELECTRON_SMOKE=1 electron .",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "45.1.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.4"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "baseline": {
+    "repository": "https://github.com/guibleme/macross-x-ontrack",
+    "revision": "ea8d43500540ddbca238a5afaf87353d7c30a1a6",
+    "declaredLicense": "MIT (Cargo.toml)",
+    "notices": [
+      "assets/themes/OPENCODE-LICENSE.txt"
+    ]
+  },
+  "newImplementation": {
+    "paths": [
+      "ui/",
+      "contracts/",
+      "src/runtime.rs",
+      "src/command_state.rs",
+      "src/sessions.rs",
+      "tests/runtime.rs",
+      "scripts/audit-neutral.py",
+      "scripts/audit-secrets.py",
+      "scripts/install-audit-scanner.py",
+      "tests/test_neutral_audit.py",
+      "PRODUCT.md",
+      "DESIGN.md",
+      "docs/pivot-v1.md",
+      "docs/project-plan.json",
+      "docs/provenance.json",
+      "docs/verification-v1.md"
+    ],
+    "basis": "New implementation from the approved behavioral specification. No source, assets, fixtures, runtime data or history imported from the prior application.",
+    "dependencies": "Pinned manifests and lockfiles identify third-party dependencies. Their distribution notices remain applicable."
+  },
+  "excluded": [
+    "Previous application source with unverified redistribution authority",
+    "Historical investigations and evidence",
+    "Private account and deployment configuration",
+    "Runtime state, environment files, credentials, screenshots and recordings"
+  ],
+  "limitation": "This records technical provenance and exclusions. It does not assert legal certification.",
+  "adaptedBaseline": {
+    "revision": "ea8d43500540ddbca238a5afaf87353d7c30a1a6",
+    "paths": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "Cargo.lock",
+      "Cargo.toml",
+      "README.md",
+      "docs/development.md",
+      "docs/ui-adapter.md",
+      "src/app.rs",
+      "src/beads.rs",
+      "src/epic.rs",
+      "src/herdr.rs",
+      "src/hotkeys.rs",
+      "src/interface.rs",
+      "src/main.rs",
+      "src/planning.rs",
+      "src/settings.rs",
+      "src/ui.rs",
+      "src/worktrees.rs",
+      "tests/installer.sh",
+      "tests/interface.rs"
+    ],
+    "basis": "Changes to the declared upstream baseline implement the approved runtime, review and integration boundaries. Existing attribution and notices are retained."
+  }
+}
