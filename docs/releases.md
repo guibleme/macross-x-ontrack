@@ -1,6 +1,6 @@
 # Releases
 
-OnTrack publishes versioned binaries from the [release workflow](../.github/workflows/release.yml). A pushed tag in the form `vMAJOR.MINOR.PATCH` must exactly match the `version` in `Cargo.toml`. For example, version `0.1.0` uses tag `v0.1.0`. A pushed tag starts the workflow; no GitHub Release is published until its checks and all builds pass. Users can follow the [installation guide](installation.md) for install, update, removal, and troubleshooting.
+MXO publishes versioned binaries from the [release workflow](../.github/workflows/release.yml). A pushed tag in the form `vMAJOR.MINOR.PATCH` must exactly match the `version` in `Cargo.toml`. Version `0.2.2` uses tag `v0.2.2`. A pushed tag starts the workflow; no GitHub Release is published until its checks and all builds pass. Users can follow the [installation guide](installation.md) for installation, updates, removal, and troubleshooting.
 
 ## Supported downloads
 
@@ -11,31 +11,31 @@ OnTrack publishes versioned binaries from the [release workflow](../.github/work
 | macOS | Intel | `x86_64-apple-darwin` |
 | macOS | Apple Silicon | `aarch64-apple-darwin` |
 
-For each target, a release contains `ontrack-vVERSION-TARGET.tar.gz` and a matching `ontrack-vVERSION-TARGET.tar.gz.sha256`. The archive contains one executable named `ontrack` at its root. The checksum file uses the standard `SHA256  filename` format and hashes the downloadable archive, not the unpacked binary. The `vVERSION` portion must match the release tag exactly. These names are the contract for the installer and `ontrack update` command. Four targets produce eight downloadable files in total.
+For each target, a release contains `mxo-vVERSION-TARGET.tar.gz` and a matching `mxo-vVERSION-TARGET.tar.gz.sha256`. The archive contains one executable named `mxo` at its root. The checksum file uses the standard `SHA256  filename` format and hashes the downloadable archive, not the unpacked binary. The `vVERSION` portion must match the release tag exactly. These names are the contract for the installer and `mxo update` command. Four targets produce eight downloadable files in total.
 
-Download the archive and its `.sha256` file from the same [GitHub Release](https://github.com/ThomasJRyan/OnTrack/releases). In the download directory, verify before unpacking:
+Download the archive and its `.sha256` file from the same [GitHub Release](https://github.com/guibleme/macross-x-ontrack/releases). In the download directory, verify before unpacking:
 
 ```sh
 # Linux
-sha256sum -c ontrack-vVERSION-TARGET.tar.gz.sha256
+sha256sum -c mxo-vVERSION-TARGET.tar.gz.sha256
 
 # macOS
-shasum -a 256 -c ontrack-vVERSION-TARGET.tar.gz.sha256
+shasum -a 256 -c mxo-vVERSION-TARGET.tar.gz.sha256
 
-tar -xzf ontrack-vVERSION-TARGET.tar.gz
+tar -xzf mxo-vVERSION-TARGET.tar.gz
 mkdir -p "$HOME/.local/bin"
-install -m 755 ontrack "$HOME/.local/bin/ontrack"
+install -m 755 mxo "$HOME/.local/bin/mxo"
 ```
 
-Replace `VERSION` and `TARGET` with the downloaded release values, and ensure `$HOME/.local/bin` is on your `PATH`. OnTrack also needs the [`bd` command](https://beads.gascity.com) to open a workspace. Its agent handoff features need a working [Herdr installation](https://herdr.dev/docs).
+Replace `VERSION` and `TARGET` with the downloaded release values, and ensure `$HOME/.local/bin` is on your `PATH`. MXO also needs the [`bd` command](https://beads.gascity.com) to open a workspace. Its agent handoff features need a working [Herdr installation](https://herdr.dev/docs).
 
 ## Maintainer process
 
 Update `Cargo.toml` and `Cargo.lock`, run the four Cargo checks in the [CI guide](ci.md), commit the version change, and confirm CI passes on the intended commit. Create the tag on that same commit, replacing the example version below with the package version:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.2
+git push origin v0.2.2
 ```
 
 The [CI workflow](../.github/workflows/ci.yml) runs on pull requests and pushes to `main`. Its reported result is distinct from branch protection, which maintainers must configure separately if they want CI to block merges. The tagged release workflow repeats the Rust checks, packaging tests, and installer tests, so a passing tag is required even if the branch's earlier CI run passed.
@@ -46,8 +46,8 @@ For local release checks, run:
 
 ```sh
 python3 -m unittest discover -s scripts -p 'test_release_asset.py'
-python3 scripts/release_asset.py validate-tag v0.1.0
+python3 scripts/release_asset.py validate-tag v0.2.2
 bash tests/installer.sh
 ```
 
-Use the current package version for the second command. GitHub Actions is the authority for actual native platform builds and publishing; local checks cannot validate those remote steps. After pushing, inspect the workflow run and the [release page](https://github.com/ThomasJRyan/OnTrack/releases) for all eight files. If a check or build fails, fix the cause in a new commit, rerun checks, and use a new version tag. Do not move a published tag: users and checksums may already refer to its original contents. A missing or mismatched checksum is a release defect; users should never bypass verification to install it.
+Use the current package version for the second command. GitHub Actions is the authority for actual native platform builds and publishing; local checks cannot validate those remote steps. After pushing, inspect the workflow run and the [release page](https://github.com/guibleme/macross-x-ontrack/releases) for all eight files. If a check or build fails, fix the cause in a new commit, rerun checks, and use a new version tag. Do not move a published tag: users and checksums may already refer to its original contents. A missing or mismatched checksum is a release defect; users should never bypass verification to install it.

@@ -13,21 +13,26 @@ case "$1" in
   -m) printf '%s\n' "${FAKE_ARCH:-x86_64}" ;;
 esac
 EOF
+cat > "$work/mock/getconf" <<'EOF'
+#!/usr/bin/env bash
+[[ "$1" == GNU_LIBC_VERSION ]] || exit 1
+printf '%s\n' 'glibc 2.39'
+EOF
 cat > "$work/mock/curl" <<'EOF'
 #!/usr/bin/env bash
 [[ "${FAKE_CURL_FAIL:-}" != yes ]] || exit 22
 if [[ "$*" == *--write-out* ]]; then
-  printf '%s' 'https://github.com/ThomasJRyan/OnTrack/releases/tag/v0.2.0'
+  printf '%s' 'https://github.com/guibleme/macross-x-ontrack/releases/tag/v0.2.2'
   exit 0
 fi
 while (($#)); do
   if [[ "$1" == --output ]]; then output=$2; shift 2; else url=$1; shift; fi
 done
 case "$url" in
-  */ontrack-*.tar.gz.sha256)
+  */mxo-*.tar.gz.sha256)
     [[ "${FAKE_CHECKSUM_MISSING:-}" != yes ]] || exit 22
     cp "$FAKE_ROOT/checksum" "$output" ;;
-  */ontrack-*.tar.gz) cp "$FAKE_ROOT/asset" "$output" ;;
+  */mxo-*.tar.gz) cp "$FAKE_ROOT/asset" "$output" ;;
   *) exit 22 ;;
 esac
 EOF
@@ -48,10 +53,10 @@ import sys
 import tarfile
 
 root = pathlib.Path(sys.argv[1])
-name = "ontrack-v0.2.0-x86_64-unknown-linux-gnu.tar.gz"
+name = "mxo-v0.2.2-x86_64-unknown-linux-gnu.tar.gz"
 with tarfile.open(root / "asset", "w:gz") as archive:
-    data = b"#!/bin/sh\nprintf 'fixture ontrack\\n'\n"
-    member = tarfile.TarInfo("ontrack")
+    data = b"#!/bin/sh\nprintf 'fixture mxo\\n'\n"
+    member = tarfile.TarInfo("mxo")
     member.size = len(data)
     archive.addfile(member, io.BytesIO(data))
 digest = hashlib.sha256((root / "asset").read_bytes()).hexdigest()
@@ -73,21 +78,21 @@ expect_failure() {
 
 installer="$root/scripts/install.sh"
 bash "$installer" --install-dir "$work/install" >"$work/stdout" 2>"$work/stderr"
-[[ "$("$work/install/ontrack")" == 'fixture ontrack' ]]
+[[ "$("$work/install/mxo")" == 'fixture mxo' ]]
 expect_failure 'pass --replace' bash "$installer" --install-dir "$work/install"
 bash "$installer" --install-dir "$work/install" --replace >"$work/stdout" 2>"$work/stderr"
-[[ "$("$work/install/ontrack")" == 'fixture ontrack' ]]
+[[ "$("$work/install/mxo")" == 'fixture mxo' ]]
 
 cp "$work/checksum" "$work/checksum.good"
-printf '%064d  %s\n' 0 'ontrack-v0.2.0-x86_64-unknown-linux-gnu.tar.gz' > "$work/checksum"
+printf '%064d  %s\n' 0 'mxo-v0.2.2-x86_64-unknown-linux-gnu.tar.gz' > "$work/checksum"
 expect_failure 'SHA-256 mismatch' bash "$installer" --install-dir "$work/install" --replace
-[[ "$("$work/install/ontrack")" == 'fixture ontrack' ]]
+[[ "$("$work/install/mxo")" == 'fixture mxo' ]]
 mv "$work/checksum.good" "$work/checksum"
 
 expect_failure 'could not download release checksum' env FAKE_CHECKSUM_MISSING=yes bash "$installer" --install-dir "$work/install" --replace
 
 mkdir -p "$work/linked"
-ln -s "$work/install/ontrack" "$work/linked/ontrack"
+ln -s "$work/install/mxo" "$work/linked/mxo"
 expect_failure 'refusing to replace symlink' bash "$installer" --install-dir "$work/linked" --replace
 
 expect_failure 'could not resolve the latest stable release' env FAKE_CURL_FAIL=yes bash "$installer" --install-dir "$work/install" --replace

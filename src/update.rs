@@ -82,7 +82,7 @@ pub fn parse_latest(body: &[u8], current: &str, target: &str) -> io::Result<Chec
     let assets = release["assets"]
         .as_array()
         .ok_or_else(|| invalid("Release has no assets"))?;
-    let names = [format!("ontrack-{tag}-{target}.tar.gz")];
+    let names = [format!("mxo-{tag}-{target}.tar.gz")];
     for name in &names {
         let Some(asset) = assets.iter().find(|item| item["name"] == *name) else {
             continue;
@@ -245,7 +245,7 @@ fn stage_file(dir: &Path) -> io::Result<(Staged, File)> {
             .unwrap_or_default()
             .as_nanos();
         let path = dir.join(format!(
-            ".ontrack-update-{}-{stamp}-{attempt}",
+            ".mxo-update-{}-{stamp}-{attempt}",
             std::process::id()
         ));
         match OpenOptions::new()
@@ -327,12 +327,12 @@ fn extract(archive: &Path, output: File) -> io::Result<()> {
     }
     let names: Vec<_> = String::from_utf8_lossy(&listing.stdout)
         .lines()
-        .filter(|name| *name == "ontrack" || *name == "./ontrack")
+        .filter(|name| *name == "mxo" || *name == "./mxo")
         .map(str::to_owned)
         .collect();
     if names.len() != 1 {
         return Err(invalid(
-            "Release archive must contain exactly one ontrack executable at its root",
+            "Release archive must contain exactly one mxo executable at its root",
         ));
     }
     let result = Command::new("tar")
@@ -345,7 +345,7 @@ fn extract(archive: &Path, output: File) -> io::Result<()> {
         Ok(())
     } else {
         Err(invalid(
-            "Verified release archive does not contain an ontrack executable",
+            "Verified release archive does not contain an mxo executable",
         ))
     }
 }
@@ -450,7 +450,7 @@ mod tests {
     use std::io::Write;
 
     fn fixture(tag: &str) -> Vec<u8> {
-        let name = format!("ontrack-{tag}-x86_64-unknown-linux-gnu.tar.gz");
+        let name = format!("mxo-{tag}-x86_64-unknown-linux-gnu.tar.gz");
         serde_json::to_vec(&json!({
             "tag_name":tag,
             "html_url":format!("https://github.com/guibleme/macross-x-ontrack/releases/tag/{tag}"),
@@ -480,7 +480,7 @@ mod tests {
     }
     #[test]
     fn checksum_rejects_mismatch_and_missing_name() {
-        let name = "ontrack-v1.2.1-x86_64-unknown-linux-gnu.tar.gz";
+        let name = "mxo-v1.2.1-x86_64-unknown-linux-gnu.tar.gz";
         let digest = Sha256::digest(b"safe bytes");
         let line = format!("{digest:x}  {name}\n");
         let expected = checksum_for(line.as_bytes(), name).unwrap();
@@ -491,6 +491,42 @@ mod tests {
         assert!(checksum_for(line.as_bytes(), "other").is_err());
         assert!(checksum_for(format!("{line}{line}").as_bytes(), name).is_err());
     }
+
+    #[test]
+    fn extracts_only_the_mxo_release_binary() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("mxo-update-extract-{}-{nonce}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+
+        for (name, should_succeed) in [("mxo", true), ("ontrack", false)] {
+            let member = dir.join(name);
+            let archive = dir.join(format!("{name}.tar.gz"));
+            fs::write(&member, b"release binary").unwrap();
+            let output = Command::new("tar")
+                .args(["-czf"])
+                .arg(&archive)
+                .args(["-C"])
+                .arg(&dir)
+                .arg(name)
+                .output()
+                .unwrap();
+            assert!(output.status.success());
+
+            let (staged, output) = stage_file(&dir).unwrap();
+            let result = extract(&archive, output);
+            assert_eq!(result.is_ok(), should_succeed);
+            if should_succeed {
+                assert_eq!(fs::read(&staged.0).unwrap(), b"release binary");
+            }
+        }
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn failed_replacement_preserves_existing_file() {
         let dir = std::env::temp_dir();
@@ -498,7 +534,7 @@ mod tests {
         file.write_all(b"old").unwrap();
         let (staged, mut candidate) = stage_file(&dir).unwrap();
         candidate.write_all(b"new").unwrap();
-        assert!(replace(&staged.0, &dir.join("missing-parent").join("ontrack")).is_err());
+        assert!(replace(&staged.0, &dir.join("missing-parent").join("mxo")).is_err());
         assert_eq!(fs::read(&old.0).unwrap(), b"old");
     }
 

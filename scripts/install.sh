@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Install the latest stable OnTrack release, optionally installing bd and Herdr.
+# Install the latest stable MXO release, optionally installing bd and Herdr.
 set -euo pipefail
 
-latest_release_page='https://github.com/ThomasJRyan/OnTrack/releases/latest'
-release_download_base='https://github.com/ThomasJRyan/OnTrack/releases/download'
+latest_release_page='https://github.com/guibleme/macross-x-ontrack/releases/latest'
+release_download_base='https://github.com/guibleme/macross-x-ontrack/releases/download'
 install_dir="${HOME:-}/.local/bin"
 replace=false
 scratch=''
@@ -13,19 +13,19 @@ usage() {
   cat <<'EOF'
 Usage: bash install.sh [--install-dir DIR] [--replace]
 
-Install the latest stable OnTrack release into ~/.local/bin by default.
+Install the latest stable MXO release into ~/.local/bin by default.
 An existing destination requires --replace. If bd or Herdr is missing, the
 installer offers to run that project's official installer.
 
 Options:
-  --install-dir DIR  Install ontrack into DIR
-  --replace          Replace an existing regular ontrack binary (update)
+  --install-dir DIR  Install mxo into DIR
+  --replace          Replace an existing regular mxo binary (update)
   -h, --help         Show this help
 EOF
 }
 
-fail() { printf 'ontrack installer: %s\n' "$*" >&2; exit 1; }
-log() { printf 'ontrack installer: %s\n' "$*" >&2; }
+fail() { printf 'mxo installer: %s\n' "$*" >&2; exit 1; }
+log() { printf 'mxo installer: %s\n' "$*" >&2; }
 cleanup() {
   if [[ -n "$staged" ]]; then rm -f -- "$staged"; fi
   if [[ -n "$scratch" ]]; then rm -rf -- "$scratch"; fi
@@ -126,7 +126,7 @@ if [[ "$dependencies_skipped" == true ]]; then
   fail 'install the missing dependencies and ensure both bd and herdr are on PATH, then rerun this installer'
 fi
 
-destination="${install_dir%/}/ontrack"
+destination="${install_dir%/}/mxo"
 [[ "${install_dir//\//}" != '' ]] || fail 'the root directory is not a supported install location'
 if [[ -L "$destination" ]]; then
   fail "refusing to replace symlink: $destination"
@@ -150,19 +150,19 @@ if ! latest_release_url=$(curl --fail --location --silent --show-error --retry 3
   --output /dev/null --write-out '%{url_effective}' "$latest_release_page"); then
   fail "could not resolve the latest stable release from $latest_release_page; check network access and release availability"
 fi
-if [[ "$latest_release_url" =~ ^https://github\.com/ThomasJRyan/OnTrack/releases/tag/(v[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+if [[ "$latest_release_url" =~ ^https://github\.com/guibleme/macross-x-ontrack/releases/tag/(v[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
   release_tag=${BASH_REMATCH[1]}
 else
   fail "GitHub returned an unexpected latest release URL: $latest_release_url"
 fi
-asset_name="ontrack-${release_tag}-${target}.tar.gz"
+asset_name="mxo-${release_tag}-${target}.tar.gz"
 asset_url="${release_download_base}/${release_tag}/${asset_name}"
 checksum_url="${asset_url}.sha256"
 expected_digest=''
 download "$asset_url" "$scratch/asset" "$asset_name"
 download "$checksum_url" "$scratch/checksum" 'release checksum'
 
-if ! python3 - "$scratch/asset" "$scratch/checksum" "$scratch/ontrack" "$asset_name" "$expected_digest" <<'PY'
+if ! python3 - "$scratch/asset" "$scratch/checksum" "$scratch/mxo" "$asset_name" "$expected_digest" <<'PY'
 import hashlib
 import re
 import shutil
@@ -190,16 +190,16 @@ try:
 
     with tarfile.open(source, "r:gz") as archive:
         members = [member for member in archive.getmembers()
-                   if member.isfile() and member.name in ("ontrack", "./ontrack")]
+                   if member.isfile() and member.name in ("mxo", "./mxo")]
         if len(members) != 1:
-            raise ValueError("archive must contain one regular ontrack binary at its root")
+            raise ValueError("archive must contain one regular mxo binary at its root")
         with archive.extractfile(members[0]) as binary, open(output, "wb") as result:
             shutil.copyfileobj(binary, result)
     with open(output, "rb") as result:
         if not result.read(1):
-            raise ValueError("archive contains an empty ontrack binary")
+            raise ValueError("archive contains an empty mxo binary")
 except (OSError, ValueError, tarfile.TarError) as error:
-    print(f"ontrack installer: verification or extraction failed: {error}", file=sys.stderr)
+    print(f"mxo installer: verification or extraction failed: {error}", file=sys.stderr)
     sys.exit(1)
 PY
 then
@@ -207,8 +207,8 @@ then
 fi
 
 if ! mkdir -p -- "$install_dir"; then fail "cannot create install directory: $install_dir"; fi
-staged=$(mktemp "$install_dir/.ontrack.XXXXXXXX") || fail "cannot write to install directory: $install_dir"
-if ! cp -- "$scratch/ontrack" "$staged" || ! chmod 755 "$staged"; then
+staged=$(mktemp "$install_dir/.mxo.XXXXXXXX") || fail "cannot write to install directory: $install_dir"
+if ! cp -- "$scratch/mxo" "$staged" || ! chmod 755 "$staged"; then
   fail "cannot prepare executable in install directory: $install_dir"
 fi
 # Recheck after downloading so a newly created file is never silently replaced.
@@ -219,5 +219,5 @@ if ! mv -f -- "$staged" "$destination"; then fail "cannot install to: $destinati
 staged=''
 log "installed $destination"
 if [[ ":$PATH:" != *":$install_dir:"* ]]; then
-  log "add $install_dir to PATH to run ontrack by name"
+  log "add $install_dir to PATH to run mxo by name"
 fi

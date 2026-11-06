@@ -1,6 +1,6 @@
 # Development guide
 
-ontrack is a single Rust 2024 binary requiring Rust 1.88 or newer. Runtime workspace integration uses the public Beads CLI; no direct database integration is needed. Browse operations are read-only. Create, edit, delete, and guarded board moves are user actions; the scheduler hands off eligible Ready issues through the tracked Herdr path. Bead closure requires freshly verified tracked Git integration and is reconciled independently of automatic merge/cleanup preferences. Consult the [official Beads documentation](https://beads.gascity.com) for CLI and workspace behavior and the [user guide](user-guide.md) for the board workflow.
+MXO is a single Rust 2024 binary requiring Rust 1.88 or newer. Runtime workspace integration uses the public Beads CLI; no direct database integration is needed. Browse operations are read-only. Create, edit, delete, and guarded board moves are user actions; the scheduler hands off eligible Ready issues through the tracked Herdr path. Bead closure requires freshly verified tracked Git integration and is reconciled independently of automatic merge/cleanup preferences. Consult the [official Beads documentation](https://beads.gascity.com) for CLI and workspace behavior and the [user guide](user-guide.md) for the board workflow.
 
 Tagged builds and release asset naming are documented in the [release guide](releases.md); installer behavior and offline checks are in the [installation guide](installation.md#release-asset-contract-for-maintainers). The workflow uses `scripts/release_asset.py` for tag validation, archive creation, and checksum verification; keep its target list aligned with the native runner matrix in `.github/workflows/release.yml`.
 
@@ -43,7 +43,7 @@ The hidden egg is entered from normal board, detail, or worktree browsing with U
 
 Every `Block` in `src/ui.rs` that draws a full border sets `BorderType::Rounded`. This includes board columns, drawers, modal frames, form fields, and help. Keep borderless backgrounds and compact-terminal fallbacks borderless; preserve titles and colours when adding a bordered widget.
 
-`ontrack update` handles release discovery before Herdr, Beads, or terminal browser initialization. Browser startup does not make a release request.
+`mxo update` handles release discovery before Herdr, Beads, or terminal browser initialization. Browser startup does not make a release request.
 
 In the worktree drawer, Enter queues `herdr workspace focus WORKSPACE_ID` on the existing background worker. The ID comes from the selected OnTrack handoff, never global focus. The adapter passes arguments separately, rejects unsafe IDs, and requires Herdr's `workspace_focused` result to repeat the selected ID. Closed workspaces and removed checkouts are rejected before dispatch. Focus success and errors appear in the drawer without changing Git, Beads, or the registry.
 
@@ -51,7 +51,7 @@ Worktree discovery has no progress placeholder in `ui::render`: empty-state list
 
 `theme::worktree_status_color` maps every `WorktreeStatus` to a semantic palette role. `ui::worktree_status_style` applies that colour to the label's foreground characters and leaves the pane background intact; the surrounding selected-row highlight remains separate. Keep list and detail labels in sync when adding a worktree state. Theme tests enforce that pending and attention colours differ from integrated in every bundled theme, and UI buffer tests check all list labels and selected details across bundled themes.
 
-`worktrees::inspect` recognizes a source checkout's `MERGE_HEAD` only when it equals the verified target HEAD, the target checkout is clean, and no OnTrack merge request is active. It displays `MERGE IN PROGRESS` without changing `verify` or action eligibility. `ontrack status <working|merging|blocked|clear> [detail]` writes an advisory `agent_report` to the existing locked registry after matching the caller's canonical Git top level to exactly one active managed checkout and verifying its identity. Reports expire from display after 15 minutes and are skipped for completed or identity-error states. `list_with` and reconciliation append them only to display details; merge and cleanup paths never consume them. Tests should keep these boundaries explicit.
+`worktrees::inspect` recognizes a source checkout's `MERGE_HEAD` only when it equals the verified target HEAD, the target checkout is clean, and no OnTrack merge request is active. It displays `MERGE IN PROGRESS` without changing `verify` or action eligibility. `mxo status <working|merging|blocked|clear> [detail]` writes an advisory `agent_report` to the existing locked registry after matching the caller's canonical Git top level to exactly one active managed checkout and verifying its identity. Reports expire from display after 15 minutes and are skipped for completed or identity-error states. `list_with` and reconciliation append them only to display details; merge and cleanup paths never consume them. Tests should keep these boundaries explicit.
 
 `theme::status_color` gives synthetic Ready a readable blue for light and dark themes. The same mapping colours the Ready column border and card status text; it does not change underlying Beads status or worktree colours. Preserve contrast coverage and rendered-buffer checks across bundled themes.
 
@@ -96,7 +96,7 @@ Missing-workspace guidance asks the user to run the literal command `bd init`, a
 
 Focused `cargo test startup::tests` covers accepted and rejected Herdr markers, then injects command execution and captures output to cover missing-workspace early exit, terminal highlighting, plain redirected output, the single discovery command, existing/inherited/redirected workspace paths, malformed discovery, other discovery errors, and an unavailable CLI. A temporary directory test covers ignore-file creation, preservation, and repeated startup. No live project initialization occurs in unit tests. For a manual terminal check, run the built binary from a disposable directory with no ancestor Beads workspace inside Herdr: verify the highlighted instruction, immediate successful exit, and absence of setup prompts, alternate-screen entry, or workspace files. Redirect stdout to verify plain output. Launch from an existing workspace to verify normal splash/browser startup and terminal cleanup on quit.
 
-`ontrack uninstall` is dispatched before workspace discovery and terminal setup. It uses the running executable path and `settings::config_path` to select only the current installation and OnTrack user settings; preflight rejects unexpected file types and symlinks. The executable is removed last and checked again against its original file identity. `cargo test --test uninstall` copies the built binary into disposable directories and verifies confirmation, cancellation, missing settings, unsafe paths, and preservation of sibling `bd` and Herdr fixtures.
+`mxo uninstall` is dispatched before workspace discovery and terminal setup. It uses the running executable path and `settings::config_path` to select only the current installation and MXO user settings; preflight rejects unexpected file types and symlinks. The executable is removed last and checked again against its original file identity. `cargo test --test uninstall` copies the built binary into disposable directories and verifies confirmation, cancellation, missing settings, unsafe paths, and preservation of sibling `bd` and Herdr fixtures.
 
 ### Board states and agent harness labels
 
@@ -151,7 +151,7 @@ limit leaves Ready labels and the existing priority and ID ordering untouched.
 
 Board display ordering is independent of scheduler priority/ID ordering and never changes underlying records. Preserve useful parent-before-child ordering within a non-Closed column where possible; parents in other columns remain separate. Closed retains newest completion-time ordering with update/creation fallback. Refresh must preserve selection by Bead ID across moves, the active column when empty, and bounded per-column scroll positions.
 
-Detail parsing selects the requested ID, rejects duplicate matching records, and reports a missing ID. It retains the returned JSON intact, including comments, relationships, metadata, and fields unknown to ontrack. The detail renderer shows narrative fields, comments, and supported dependency links, omitting miscellaneous metadata and relationship extras from display for both cached list records and full show records. Process-start errors, unsuccessful exit statuses with stderr, and invalid JSON/records are surfaced as errors rather than panics.
+Detail parsing selects the requested ID, rejects duplicate matching records, and reports a missing ID. It retains the returned JSON intact, including comments, relationships, metadata, and fields unknown to MXO. The detail renderer shows narrative fields, comments, and supported dependency links, omitting miscellaneous metadata and relationship extras from display for both cached list records and full show records. Process-start errors, unsuccessful exit statuses with stderr, and invalid JSON/records are surfaced as errors rather than panics.
 
 ## Herdr launch adapter
 
@@ -208,12 +208,12 @@ Merge requests use the repository-wide registry lock and persist `merge_queue` o
 
 ## Background work and cached state
 
-`ontrack update` calls `update::check` in the foreground, prints the running
+`mxo update` calls `update::check` in the foreground, prints the running
 version and release status, and requires an explicit `y` or `yes` before calling
 `update::install`. The update module calls `curl` with fixed HTTPS endpoints and
 separate arguments, parses semantic versions, accepts
-`ontrack-vVERSION-TARGET.tar.gz` with a matching `.sha256` sidecar, and extracts
-only the `ontrack` entry from the archive. The selected target is one of glibc
+`mxo-vVERSION-TARGET.tar.gz` with a matching `.sha256` sidecar, and extracts
+only the `mxo` entry from the archive. The selected target is one of glibc
 Linux or macOS on x86_64 or aarch64. Release URL and asset URL checks restrict
 downloads to the official tagged repository. Downloads and candidate
 executables are staged with unique names in the executable directory, and
@@ -256,7 +256,7 @@ Keep CLI calls off the input/render loop and preserve stale-response filtering w
 
 ## Release check
 
-`src/update.rs` queries the official `ThomasJRyan/OnTrack` GitHub Releases
+`src/update.rs` queries the official `guibleme/macross-x-ontrack` GitHub Releases
 [`latest` endpoint](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
 with `curl`. It validates an official stable semantic-version tag and a
 compatible asset before offering installation. HTTP 404 yields a no-release

@@ -20,15 +20,15 @@ class ReleaseAssetTests(unittest.TestCase):
     def test_all_targets_package_and_verify(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            binary = root / "ontrack"
+            binary = root / "mxo"
             binary.write_bytes(b"sample executable")
             binary.chmod(0o755)
             output = root / "dist"
             for target in release_asset.TARGETS:
                 release_asset.package(TAG, target, binary, output)
                 with tarfile.open(output / release_asset.asset_name(TAG, target)) as archive:
-                    self.assertEqual(archive.getnames(), ["ontrack"])
-                    member = archive.getmember("ontrack")
+                    self.assertEqual(archive.getnames(), ["mxo"])
+                    member = archive.getmember("mxo")
                     self.assertTrue(member.mode & 0o111)
                     self.assertEqual(archive.extractfile(member).read(), b"sample executable")
             release_asset.verify(TAG, output)

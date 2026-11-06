@@ -753,8 +753,8 @@ fn launch_with_mode(
         ));
     }
     if require_ready {
-        if !crate::beads::ready_record(&bead)
-            && !(bead["status"] == "open"
+        if !(crate::beads::ready_record(&bead)
+            || bead["status"] == "open"
                 && bead["issue_type"] == "epic"
                 && crate::beads::labels(&bead).any(|label| label == crate::beads::READY_LABEL))
         {

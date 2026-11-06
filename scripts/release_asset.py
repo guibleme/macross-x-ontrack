@@ -29,7 +29,7 @@ def validate_tag(tag: str) -> None:
 def asset_name(tag: str, target: str) -> str:
     if target not in TARGETS:
         raise ValueError(f"unsupported target: {target!r}")
-    return f"ontrack-{tag}-{target}.tar.gz"
+    return f"mxo-{tag}-{target}.tar.gz"
 
 
 def checksum(path: Path) -> str:
@@ -48,7 +48,7 @@ def package(tag: str, target: str, binary: Path, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     archive = output / name
     with tarfile.open(archive, "w:gz") as bundle:
-        bundle.add(binary, arcname="ontrack", recursive=False)
+        bundle.add(binary, arcname="mxo", recursive=False)
     (output / f"{name}.sha256").write_text(f"{checksum(archive)}  {name}\n")
 
 
