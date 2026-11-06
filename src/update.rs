@@ -13,7 +13,9 @@ use std::{
 };
 
 const RELEASE_API: &str = "https://api.github.com/repos/guibleme/macross-x-ontrack/releases/latest";
+const RELEASE_LATEST: &str = "https://github.com/guibleme/macross-x-ontrack/releases/latest";
 const RELEASE_PREFIX: &str = "https://github.com/guibleme/macross-x-ontrack/releases/download/";
+const RELEASE_PAGE_PREFIX: &str = "https://github.com/guibleme/macross-x-ontrack/releases/tag/";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Available {
@@ -135,14 +137,57 @@ pub fn parse_latest(body: &[u8], current: &str, target: &str) -> io::Result<Chec
 
 pub fn check() -> io::Result<Check> {
     let target = target()?;
-    let body = match fetch_small(RELEASE_API) {
-        Ok(body) => body,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+    match fetch_small(RELEASE_API) {
+        Ok(body) => parse_latest(&body, env!("CARGO_PKG_VERSION"), target),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Check::NoPublishedRelease),
+        // GitHub's anonymous API quota is shared by public egress IPs. Resolve
+        // the stable release through GitHub's redirect when that quota is spent.
+        Err(_) => latest_from_redirect(env!("CARGO_PKG_VERSION"), target),
+    }
+}
+
+fn latest_from_redirect(current: &str, target: &str) -> io::Result<Check> {
+    let output = curl(RELEASE_LATEST)
+        .args(["--output", "/dev/null", "--write-out", "%{url_effective}"])
+        .output()
+        .map_err(|error| io::Error::new(error.kind(), format!("Could not start curl: {error}")))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if output.status.code() == Some(22) && stderr.contains("404") {
             return Ok(Check::NoPublishedRelease);
         }
-        Err(error) => return Err(error),
-    };
-    parse_latest(&body, env!("CARGO_PKG_VERSION"), target)
+        return Err(io::Error::other(format!(
+            "Could not resolve the latest MXO release: {}",
+            stderr.trim()
+        )));
+    }
+    let page = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    parse_latest_page(&page, current, target)
+}
+
+fn parse_latest_page(page: &str, current: &str, target: &str) -> io::Result<Check> {
+    let tag = page
+        .strip_prefix(RELEASE_PAGE_PREFIX)
+        .ok_or_else(|| invalid("Latest release redirect is not the MXO repository"))?;
+    let version = Version::parse(tag.strip_prefix('v').unwrap_or(tag))
+        .map_err(|_| invalid("Latest release tag is not a semantic version"))?;
+    if tag != format!("v{}.{}.{}", version.major, version.minor, version.patch) {
+        return Err(invalid("Latest release tag must be vMAJOR.MINOR.PATCH"));
+    }
+    let installed = Version::parse(current.strip_prefix('v').unwrap_or(current))
+        .map_err(|_| invalid("Running version is not a semantic version"))?;
+    if version <= installed {
+        return Ok(Check::Current);
+    }
+    let asset_name = format!("mxo-{tag}-{target}.tar.gz");
+    Ok(Check::Available(Available {
+        version: version.to_string(),
+        page: page.to_owned(),
+        asset_url: format!("{RELEASE_PREFIX}{tag}/{asset_name}"),
+        checksum_url: format!("{RELEASE_PREFIX}{tag}/{asset_name}.sha256"),
+        asset_name,
+        digest: None,
+    }))
 }
 
 fn curl(url: &str) -> Command {
@@ -477,6 +522,45 @@ mod tests {
             Check::Current
         );
         assert!(parse_latest(&fixture("v1.2.1"), "1.2.0", "aarch64-unknown-linux-gnu").is_err());
+    }
+
+    #[test]
+    fn selects_latest_release_from_github_redirect() {
+        assert_eq!(
+            parse_latest_page(
+                "https://github.com/guibleme/macross-x-ontrack/releases/tag/v1.2.0",
+                "1.2.0",
+                "x86_64-apple-darwin"
+            )
+            .unwrap(),
+            Check::Current
+        );
+        let Check::Available(found) = parse_latest_page(
+            "https://github.com/guibleme/macross-x-ontrack/releases/tag/v1.2.1",
+            "1.2.0",
+            "aarch64-apple-darwin",
+        )
+        .unwrap() else {
+            panic!("new version was not selected")
+        };
+        assert_eq!(found.asset_name, "mxo-v1.2.1-aarch64-apple-darwin.tar.gz");
+        assert!(found.digest.is_none());
+        assert!(
+            parse_latest_page(
+                "https://github.com/another/repo/releases/tag/v1.2.1",
+                "1.2.0",
+                "x86_64-apple-darwin"
+            )
+            .is_err()
+        );
+        assert!(
+            parse_latest_page(
+                "https://github.com/guibleme/macross-x-ontrack/releases/tag/v1.2.1-rc.1",
+                "1.2.0",
+                "x86_64-apple-darwin"
+            )
+            .is_err()
+        );
     }
     #[test]
     fn checksum_rejects_mismatch_and_missing_name() {

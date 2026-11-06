@@ -1,6 +1,6 @@
 # Releases
 
-MXO publishes versioned binaries from the [release workflow](../.github/workflows/release.yml). A pushed tag in the form `vMAJOR.MINOR.PATCH` must exactly match the `version` in `Cargo.toml`. Version `0.2.2` uses tag `v0.2.2`. A pushed tag starts the workflow; no GitHub Release is published until its checks and all builds pass. Users can follow the [installation guide](installation.md) for installation, updates, removal, and troubleshooting.
+MXO publishes versioned binaries from the [release workflow](../.github/workflows/release.yml). A pushed tag in the form `vMAJOR.MINOR.PATCH` must exactly match the `version` in `Cargo.toml`. Version `0.2.3` uses tag `v0.2.3`. A pushed tag starts the workflow; no GitHub Release is published until its checks and all builds pass. Users can follow the [installation guide](installation.md) for installation, updates, removal, and troubleshooting.
 
 ## Supported downloads
 
@@ -34,19 +34,19 @@ Replace `VERSION` and `TARGET` with the downloaded release values, and ensure `$
 Update `Cargo.toml` and `Cargo.lock`, run the four Cargo checks in the [CI guide](ci.md), commit the version change, and confirm CI passes on the intended commit. Create the tag on that same commit, replacing the example version below with the package version:
 
 ```sh
-git tag v0.2.2
-git push origin v0.2.2
+git tag v0.2.3
+git push origin v0.2.3
 ```
 
 The [CI workflow](../.github/workflows/ci.yml) runs on pull requests and pushes to `main`. Its reported result is distinct from branch protection, which maintainers must configure separately if they want CI to block merges. The tagged release workflow repeats the Rust checks, packaging tests, and installer tests, so a passing tag is required even if the branch's earlier CI run passed.
 
-The release workflow first verifies the tag and runs formatting, tests, Clippy, a normal build, release packaging tests, and the offline installer tests. Four native GitHub-hosted runners then build the listed targets and upload archives with their checksums. The publish job downloads all four sets, requires the exact expected filenames, recalculates every SHA-256 digest, and creates a GitHub Release with all eight assets. A failed check, build, upload, or verification prevents the publish job from running. GitHub CLI creates a draft while uploading assets and publishes it only after uploads succeed.
+The release workflow first verifies the tag and runs formatting, tests, Clippy, a normal build, release packaging tests, and the offline installer tests. Linux runners build both Linux targets. A macOS Intel runner builds both macOS targets, including an Apple Silicon cross-build. Each job uploads its archive and checksum. The publish job downloads all four sets, requires the exact expected filenames, recalculates every SHA-256 digest, and creates a GitHub Release with all eight assets. A failed check, build, upload, or verification prevents the publish job from running. GitHub CLI creates a draft while uploading assets and publishes it only after uploads succeed.
 
 For local release checks, run:
 
 ```sh
 python3 -m unittest discover -s scripts -p 'test_release_asset.py'
-python3 scripts/release_asset.py validate-tag v0.2.2
+python3 scripts/release_asset.py validate-tag v0.2.3
 bash tests/installer.sh
 ```
 
